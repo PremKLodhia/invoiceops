@@ -6,167 +6,13 @@ import {
   Download,
   Eye,
   CheckCircle,
+  AlertCircle,
 } from 'lucide-react';
-import { api } from '../api/client';
+import { api, ApiError } from '../api/client';
 import { Button, Input, StatusBadge, DataTable, type Column } from '../components/ui';
 import { InvoiceUploadModal } from '../components/invoice/InvoiceUploadModal';
 import type { Invoice, InvoiceStatus, PaginatedResponse } from '../types';
 import styles from './InvoiceListPage.module.css';
-
-// Realistic fallback queue entries
-const fallbackInvoices: Invoice[] = [
-  {
-    id: 'inv_01',
-    invoiceNumber: 'INV-2026-0891',
-    supplierId: 'sup_01',
-    supplierName: 'Apex Logistics LLC',
-    purchaseOrderId: 'po_01',
-    poNumber: 'PO-70231',
-    issueDate: '2026-10-14',
-    dueDate: '2026-11-13',
-    totalAmount: 14250.0,
-    taxAmount: 1295.45,
-    currency: 'USD',
-    status: 'NEEDS_REVIEW',
-    hasValidationErrors: true,
-    hasDuplicateWarning: true,
-    hasPoMismatch: true,
-    createdAt: '2026-10-14T09:12:00Z',
-  },
-  {
-    id: 'inv_02',
-    invoiceNumber: 'INV-2026-0890',
-    supplierId: 'sup_02',
-    supplierName: 'Vertex Component Corp',
-    purchaseOrderId: 'po_02',
-    poNumber: 'PO-70228',
-    issueDate: '2026-10-14',
-    dueDate: '2026-11-28',
-    totalAmount: 4120.5,
-    taxAmount: 374.59,
-    currency: 'USD',
-    status: 'PENDING_APPROVAL',
-    createdAt: '2026-10-14T10:45:00Z',
-  },
-  {
-    id: 'inv_03',
-    invoiceNumber: 'INV-2026-0889',
-    supplierId: 'sup_03',
-    supplierName: 'Cascade Industrial Spares',
-    purchaseOrderId: 'po_03',
-    poNumber: 'PO-70215',
-    issueDate: '2026-10-13',
-    dueDate: '2026-11-12',
-    totalAmount: 2840.0,
-    taxAmount: 258.18,
-    currency: 'USD',
-    status: 'REJECTED',
-    createdAt: '2026-10-13T14:20:00Z',
-  },
-  {
-    id: 'inv_04',
-    invoiceNumber: 'INV-2026-0888',
-    supplierId: 'sup_04',
-    supplierName: 'Kestrel Cloud Infrastructure',
-    purchaseOrderId: 'po_04',
-    poNumber: 'PO-70199',
-    issueDate: '2026-10-12',
-    dueDate: '2026-10-26',
-    totalAmount: 8400.0,
-    taxAmount: 0.0,
-    currency: 'USD',
-    status: 'APPROVED',
-    createdAt: '2026-10-12T08:00:00Z',
-  },
-  {
-    id: 'inv_05',
-    invoiceNumber: 'INV-2026-0887',
-    supplierId: 'sup_05',
-    supplierName: 'Northwind Packaging Co.',
-    purchaseOrderId: 'po_05',
-    poNumber: 'PO-70184',
-    issueDate: '2026-10-12',
-    dueDate: '2026-11-11',
-    totalAmount: 1320.75,
-    taxAmount: 120.07,
-    currency: 'USD',
-    status: 'APPROVED',
-    createdAt: '2026-10-12T11:32:00Z',
-  },
-  {
-    id: 'inv_06',
-    invoiceNumber: 'INV-2026-0886',
-    supplierId: 'sup_06',
-    supplierName: 'Global Freight Forwarding',
-    purchaseOrderId: 'po_06',
-    poNumber: 'PO-70172',
-    issueDate: '2026-10-11',
-    dueDate: '2026-11-10',
-    totalAmount: 22400.0,
-    taxAmount: 2036.36,
-    currency: 'USD',
-    status: 'PENDING_APPROVAL',
-    createdAt: '2026-10-11T16:15:00Z',
-  },
-  {
-    id: 'inv_07',
-    invoiceNumber: 'INV-2026-0885',
-    supplierId: 'sup_07',
-    supplierName: 'Silverline Precision Parts',
-    purchaseOrderId: 'po_07',
-    poNumber: 'PO-70165',
-    issueDate: '2026-10-10',
-    dueDate: '2026-11-09',
-    totalAmount: 7650.0,
-    taxAmount: 695.45,
-    currency: 'USD',
-    status: 'APPROVED',
-    createdAt: '2026-10-10T13:40:00Z',
-  },
-  {
-    id: 'inv_08',
-    invoiceNumber: 'INV-2026-0884',
-    supplierId: 'sup_08',
-    supplierName: 'Beacon Telecom Services',
-    purchaseOrderId: 'po_08',
-    poNumber: 'PO-70154',
-    issueDate: '2026-10-09',
-    dueDate: '2026-10-23',
-    totalAmount: 980.0,
-    taxAmount: 89.09,
-    currency: 'USD',
-    status: 'APPROVED',
-    createdAt: '2026-10-09T10:00:00Z',
-  },
-  {
-    id: 'inv_09',
-    invoiceNumber: 'INV-2026-0883',
-    supplierId: 'sup_09',
-    supplierName: 'OmniSource Materials',
-    purchaseOrderId: 'po_09',
-    poNumber: 'PO-70142',
-    issueDate: '2026-10-08',
-    dueDate: '2026-11-07',
-    totalAmount: 16800.0,
-    taxAmount: 1527.27,
-    currency: 'USD',
-    status: 'NEEDS_REVIEW',
-    createdAt: '2026-10-08T15:22:00Z',
-  },
-  {
-    id: 'inv_10',
-    invoiceNumber: 'INV-2026-0882',
-    supplierId: 'sup_10',
-    supplierName: 'Titan Security Solutions',
-    issueDate: '2026-10-07',
-    dueDate: '2026-11-06',
-    totalAmount: 3200.0,
-    taxAmount: 290.91,
-    currency: 'USD',
-    status: 'UPLOADED',
-    createdAt: '2026-10-07T09:30:00Z',
-  },
-];
 
 type FilterTab = 'all' | InvoiceStatus | string;
 
@@ -174,13 +20,15 @@ export const InvoiceListPage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
 
-  const [invoices, setInvoices] = useState<Invoice[]>(fallbackInvoices);
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [searchQuery, setSearchQuery] = useState(searchParams.get('search') || '');
   const [statusFilter, setStatusFilter] = useState<FilterTab>(searchParams.get('status') || 'all');
   const [sortKey, setSortKey] = useState<string>('issueDate');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [isExporting, setIsExporting] = useState<boolean>(false);
+  const [exportError, setExportError] = useState<string | null>(null);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState<boolean>(false);
 
   const filterTabs: { id: FilterTab; label: string }[] = [
@@ -194,6 +42,7 @@ export const InvoiceListPage: React.FC = () => {
 
   const fetchInvoices = useCallback(async () => {
     setIsLoading(true);
+    setLoadError(null);
     try {
       const params: Record<string, string> = {};
       if (searchQuery.trim()) params.search = searchQuery.trim();
@@ -201,11 +50,14 @@ export const InvoiceListPage: React.FC = () => {
 
       const res = await api.get<Invoice[] | PaginatedResponse<Invoice>>('/invoices', { params });
       const list = Array.isArray(res) ? res : res.data || [];
-      if (list.length > 0) {
-        setInvoices(list);
+      setInvoices(list);
+    } catch (err: unknown) {
+      setInvoices([]);
+      if (err instanceof ApiError) {
+        setLoadError(err.message || 'Failed to load invoices from server');
+      } else {
+        setLoadError('Failed to communicate with invoice service. Please verify that the backend is running.');
       }
-    } catch {
-      // Retain fallback data when offline
     } finally {
       setIsLoading(false);
     }
@@ -236,24 +88,15 @@ export const InvoiceListPage: React.FC = () => {
 
   const handleExportCsv = async () => {
     setIsExporting(true);
+    setExportError(null);
     try {
       await api.download('/export/invoices/csv', 'invoices_export.csv');
-    } catch {
-      // Fallback CSV export generated client-side from displayed dataset
-      const csvHeader = 'Invoice Number,Supplier,Issue Date,Due Date,Currency,Total Amount,Status\n';
-      const csvRows = filteredInvoices
-        .map(
-          (inv) =>
-            `"${inv.invoiceNumber}","${inv.supplierName}","${inv.issueDate}","${inv.dueDate}","${inv.currency}",${inv.totalAmount},"${inv.status}"`
-        )
-        .join('\n');
-      const blob = new Blob([csvHeader + csvRows], { type: 'text/csv;charset=utf-8;' });
-      const link = document.createElement('a');
-      link.href = URL.createObjectURL(blob);
-      link.setAttribute('download', 'invoices_export.csv');
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+    } catch (err: unknown) {
+      if (err instanceof ApiError) {
+        setExportError(`Export failed: ${err.message}`);
+      } else {
+        setExportError('Export failed. Please verify that the server is reachable and retry.');
+      }
     } finally {
       setIsExporting(false);
     }
@@ -303,8 +146,17 @@ export const InvoiceListPage: React.FC = () => {
       });
   }, [invoices, statusFilter, searchQuery, sortKey, sortDirection]);
 
-  const totalFilteredValue = useMemo(() => {
-    return filteredInvoices.reduce((sum, inv) => sum + inv.totalAmount, 0);
+  const subtotalsByCurrency = useMemo(() => {
+    const map: Record<string, { total: number; count: number }> = {};
+    for (const inv of filteredInvoices) {
+      const curr = (inv.currency || 'USD').toUpperCase();
+      if (!map[curr]) {
+        map[curr] = { total: 0, count: 0 };
+      }
+      map[curr].total += inv.totalAmount || 0;
+      map[curr].count += 1;
+    }
+    return map;
   }, [filteredInvoices]);
 
   const countsByStatus = useMemo(() => {
@@ -431,6 +283,49 @@ export const InvoiceListPage: React.FC = () => {
         </div>
       </div>
 
+      {/* Alert Banners */}
+      {loadError && (
+        <div style={{
+          background: 'var(--color-bg-danger-subtle, #fef2f2)',
+          border: '1px solid var(--color-border-danger, #fca5a5)',
+          color: 'var(--color-text-danger, #991b1b)',
+          borderRadius: '6px',
+          padding: '12px 16px',
+          marginBottom: '16px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '12px',
+          fontSize: '0.875rem'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <AlertCircle size={16} />
+            <span>{loadError}</span>
+          </div>
+          <Button variant="secondary" size="sm" onClick={fetchInvoices}>
+            Retry
+          </Button>
+        </div>
+      )}
+
+      {exportError && (
+        <div style={{
+          background: 'var(--color-bg-danger-subtle, #fef2f2)',
+          border: '1px solid var(--color-border-danger, #fca5a5)',
+          color: 'var(--color-text-danger, #991b1b)',
+          borderRadius: '6px',
+          padding: '12px 16px',
+          marginBottom: '16px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          fontSize: '0.875rem'
+        }}>
+          <AlertCircle size={16} />
+          <span>{exportError}</span>
+        </div>
+      )}
+
       {/* Control Toolbar */}
       <div className={styles.toolbar}>
         <div className={styles.filterRow}>
@@ -449,15 +344,40 @@ export const InvoiceListPage: React.FC = () => {
               <span>Displayed:</span>
               <span className={styles.metricValue}>{filteredInvoices.length} invoices</span>
             </div>
-            <span>&bull;</span>
+            {Object.keys(subtotalsByCurrency).length > 0 && <span>&bull;</span>}
             <div className={styles.metricItem}>
-              <span>Subtotal:</span>
-              <span className={styles.metricValue}>
-                {new Intl.NumberFormat('en-US', {
-                  style: 'currency',
-                  currency: 'USD',
-                }).format(totalFilteredValue)}
-              </span>
+              <span>Subtotals:</span>
+              {Object.keys(subtotalsByCurrency).length === 0 ? (
+                <span className={styles.metricValue}>-</span>
+              ) : (
+                <div style={{ display: 'inline-flex', gap: '6px', flexWrap: 'wrap' }}>
+                  {Object.entries(subtotalsByCurrency).map(([curr, data]) => {
+                    let formatted = `${data.total.toFixed(2)} ${curr}`;
+                    try {
+                      formatted = new Intl.NumberFormat('en-GB', {
+                        style: 'currency',
+                        currency: curr,
+                      }).format(data.total);
+                    } catch {
+                      // Fallback
+                    }
+                    return (
+                      <span
+                        key={curr}
+                        className={styles.metricValue}
+                        style={{
+                          background: 'var(--color-bg-secondary, #f1f5f9)',
+                          padding: '1px 6px',
+                          borderRadius: '4px',
+                          fontSize: '0.8125rem'
+                        }}
+                      >
+                        {formatted} <span style={{ color: 'var(--color-text-secondary, #64748b)', fontWeight: 400 }}>({data.count})</span>
+                      </span>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -493,8 +413,14 @@ export const InvoiceListPage: React.FC = () => {
         onSort={handleSort}
         isLoading={isLoading}
         onRowClick={(item) => navigate(`/invoices/${item.id}`)}
-        emptyTitle="No invoices matched your filters"
-        emptyDescription="Try clearing the search query or selecting a different status filter tab."
+        emptyTitle={loadError ? "Unable to load invoices" : "No invoices found"}
+        emptyDescription={
+          loadError
+            ? "Could not connect to the backend server. Please verify your connection and click Retry."
+            : searchQuery || statusFilter !== 'all'
+            ? "No invoices match your selected filter criteria. Try clearing search or status filters."
+            : "No invoices have been ingested into this organisation yet. Click 'Upload Invoice' to begin processing."
+        }
       />
 
       {/* Table Footer Summary */}

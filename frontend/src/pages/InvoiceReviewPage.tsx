@@ -30,162 +30,7 @@ import type {
 } from '../types';
 import styles from './InvoiceReviewPage.module.css';
 
-// Realistic sample invoice fallback for direct local inspection
-const sampleFallbackInvoice: InvoiceDetail = {
-  id: 'inv_demo_01',
-  organisationId: 'org_main',
-  invoiceNumber: 'INV-2026-0891',
-  originalFilename: 'apex_freight_october_invoice.pdf',
-  storedFilename: 'stored_apex_freight.pdf',
-  contentType: 'application/pdf',
-  supplierId: 'sup_01',
-  supplierName: 'Apex Logistics LLC',
-  supplierNameExtracted: 'Apex Logistics International Ltd',
-  purchaseOrderId: 'po_01',
-  poNumber: 'PO-70231',
-  poReferenceExtracted: 'PO-70231-EXP',
-  issueDate: '2026-10-14',
-  dueDate: '2026-11-13',
-  currency: 'USD',
-  netAmount: 12954.55,
-  taxAmount: 1295.45,
-  taxRate: 10.0,
-  grossAmount: 14250.0,
-  status: 'NEEDS_REVIEW',
-  hasValidationErrors: true,
-  hasDuplicateWarning: true,
-  hasPoMismatch: true,
-  duplicateDetails: {
-    matchedInvoiceNumber: 'INV-2026-0841',
-    matchedSupplierName: 'Apex Logistics LLC',
-    matchedDate: '2026-09-14',
-    matchedGrossAmount: 14250.0,
-  },
-  poMismatchDetails: {
-    poNumber: 'PO-70231',
-    poAmount: 12000.0,
-    invoiceAmount: 14250.0,
-    variance: 2250.0,
-  },
-  fields: {
-    supplierName: {
-      fieldName: 'supplierName',
-      extractedValue: 'Apex Logistics International Ltd',
-      correctedValue: null,
-      confidence: 'HIGH',
-      source: 'EXTRACTED',
-    },
-    invoiceNumber: {
-      fieldName: 'invoiceNumber',
-      extractedValue: 'INV-2026-0891',
-      correctedValue: null,
-      confidence: 'HIGH',
-      source: 'EXTRACTED',
-    },
-    issueDate: {
-      fieldName: 'issueDate',
-      extractedValue: '2026-10-14',
-      correctedValue: null,
-      confidence: 'MEDIUM',
-      source: 'EXTRACTED',
-    },
-    dueDate: {
-      fieldName: 'dueDate',
-      extractedValue: '2026-11-13',
-      correctedValue: null,
-      confidence: 'MEDIUM',
-      source: 'EXTRACTED',
-    },
-    currency: {
-      fieldName: 'currency',
-      extractedValue: 'USD',
-      correctedValue: null,
-      confidence: 'HIGH',
-      source: 'EXTRACTED',
-    },
-    netAmount: {
-      fieldName: 'netAmount',
-      extractedValue: '12954.55',
-      correctedValue: null,
-      confidence: 'HIGH',
-      source: 'EXTRACTED',
-    },
-    taxAmount: {
-      fieldName: 'taxAmount',
-      extractedValue: '1295.45',
-      correctedValue: null,
-      confidence: 'MEDIUM',
-      source: 'EXTRACTED',
-    },
-    grossAmount: {
-      fieldName: 'grossAmount',
-      extractedValue: '14250.00',
-      correctedValue: null,
-      confidence: 'HIGH',
-      source: 'EXTRACTED',
-    },
-    poReference: {
-      fieldName: 'poReference',
-      extractedValue: 'PO-70231',
-      correctedValue: null,
-      confidence: 'LOW',
-      source: 'OCR',
-    },
-  },
-  lineItems: [
-    {
-      id: 'li_01',
-      description: 'Expedited Freight Transport - Terminal A to Regional Hub',
-      quantity: 1,
-      unitPrice: 9450.0,
-      lineTotal: 9450.0,
-      source: 'EXTRACTED',
-    },
-    {
-      id: 'li_02',
-      description: 'Fuel Surcharge & Port Drayage Clearance',
-      quantity: 1,
-      unitPrice: 2400.0,
-      lineTotal: 2400.0,
-      source: 'EXTRACTED',
-    },
-    {
-      id: 'li_03',
-      description: 'Temperature-Controlled Pallet Storage (4 Days)',
-      quantity: 4,
-      unitPrice: 276.14,
-      lineTotal: 1104.55,
-      source: 'EXTRACTED',
-    },
-  ],
-  auditEvents: [
-    {
-      id: 'aud_1',
-      actorEmail: 'system-worker@invoiceops.local',
-      action: 'INVOICE_UPLOAD',
-      entityType: 'INVOICE',
-      metadata: { filename: 'apex_freight_october_invoice.pdf', engine: 'PDFBox v3' },
-      createdAt: '2026-10-14T09:12:00Z',
-    },
-    {
-      id: 'aud_2',
-      actorEmail: 'system-worker@invoiceops.local',
-      action: 'EXTRACTION_COMPLETED',
-      entityType: 'INVOICE',
-      metadata: { fieldsCount: 9, confidenceAvg: '0.84' },
-      createdAt: '2026-10-14T09:12:02Z',
-    },
-    {
-      id: 'aud_3',
-      actorEmail: 'system-worker@invoiceops.local',
-      action: 'PO_MATCH_EVALUATED',
-      entityType: 'PURCHASE_ORDER',
-      metadata: { poNumber: 'PO-70231', variance: '+$2,250.00' },
-      createdAt: '2026-10-14T09:12:03Z',
-    },
-  ],
-  createdAt: '2026-10-14T09:12:00Z',
-};
+
 
 export const InvoiceReviewPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -195,6 +40,7 @@ export const InvoiceReviewPage: React.FC = () => {
   const [invoice, setInvoice] = useState<InvoiceDetail | null>(null);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'workbench' | 'audit'>('workbench');
 
   // Form Fields State
@@ -243,17 +89,20 @@ export const InvoiceReviewPage: React.FC = () => {
   const loadInvoiceData = useCallback(async () => {
     if (!id) return;
     setIsLoading(true);
+    setLoadError(null);
     setActionError(null);
 
     try {
       const invData = await api.get<InvoiceDetail>(`/invoices/${id}`);
       setInvoice(invData);
       populateForm(invData);
-    } catch {
-      // Backend not running or error: use realistic fallback
-      const fallback = { ...sampleFallbackInvoice, id };
-      setInvoice(fallback);
-      populateForm(fallback);
+    } catch (err: unknown) {
+      setInvoice(null);
+      if (err instanceof ApiError) {
+        setLoadError(err.message || 'Failed to load invoice');
+      } else {
+        setLoadError('Failed to load invoice. Please verify that the server is running and the invoice exists.');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -265,12 +114,7 @@ export const InvoiceReviewPage: React.FC = () => {
       const list = Array.isArray(res) ? res : res.data || [];
       setSuppliers(list);
     } catch {
-      setSuppliers([
-        { id: 'sup_01', name: 'Apex Logistics LLC', active: true, createdAt: '2026-01-01' },
-        { id: 'sup_02', name: 'Vertex Component Corp', active: true, createdAt: '2026-01-01' },
-        { id: 'sup_03', name: 'Cascade Industrial Spares', active: true, createdAt: '2026-01-01' },
-        { id: 'sup_04', name: 'Kestrel Cloud Infrastructure', active: true, createdAt: '2026-01-01' },
-      ]);
+      setSuppliers([]);
     }
   }, []);
 
@@ -321,17 +165,23 @@ export const InvoiceReviewPage: React.FC = () => {
     };
 
     try {
-      await api.put(`/invoices/${id}/fields`, payload);
+      const updated = await api.put<InvoiceDetail>(`/invoices/${id}/fields`, payload);
       setSaveStatus('saved');
       setIsDirty(false);
-      setInvoice((prev) => (prev ? { ...prev, ...payload } : null));
+      if (updated && updated.id) {
+        setInvoice(updated);
+      } else {
+        setInvoice((prev) => (prev ? { ...prev, ...payload } : null));
+      }
       setTimeout(() => setSaveStatus('idle'), 3000);
-    } catch {
-      // For local presentation, persist locally in state
-      setInvoice((prev) => (prev ? { ...prev, ...payload } : null));
-      setSaveStatus('saved');
-      setIsDirty(false);
-      setTimeout(() => setSaveStatus('idle'), 3000);
+    } catch (err: unknown) {
+      setSaveStatus('idle');
+      // On failure, preserve dirty state, do not set saved, show actionable error
+      if (err instanceof ApiError) {
+        setActionError(`Failed to save invoice changes: ${err.message}`);
+      } else {
+        setActionError('Failed to save invoice changes. Please verify connection and retry.');
+      }
     }
   };
 
@@ -342,34 +192,29 @@ export const InvoiceReviewPage: React.FC = () => {
     setActionError(null);
 
     try {
+      let updatedInv: InvoiceDetail | null = null;
       if (action === 'submit') {
-        await api.post(`/invoices/${id}/submit`);
-        setInvoice((prev) => (prev ? { ...prev, status: 'PENDING_APPROVAL' } : null));
+        updatedInv = await api.post<InvoiceDetail>(`/invoices/${id}/submit`);
       } else if (action === 'approve') {
-        await api.post(`/invoices/${id}/approve`);
-        setInvoice((prev) => (prev ? { ...prev, status: 'APPROVED' } : null));
+        updatedInv = await api.post<InvoiceDetail>(`/invoices/${id}/approve`);
       } else if (action === 'reject') {
-        await api.post(`/invoices/${id}/reject`, { reason: rejectionReason });
-        setInvoice((prev) => (prev ? { ...prev, status: 'REJECTED', rejectionReason } : null));
+        updatedInv = await api.post<InvoiceDetail>(`/invoices/${id}/reject`, { reason: rejectionReason });
         setIsRejectModalOpen(false);
       } else if (action === 'reopen') {
-        await api.post(`/invoices/${id}/reopen`);
-        setInvoice((prev) => (prev ? { ...prev, status: 'NEEDS_REVIEW' } : null));
+        updatedInv = await api.post<InvoiceDetail>(`/invoices/${id}/reopen`);
+      }
+
+      if (updatedInv && updatedInv.id) {
+        setInvoice(updatedInv);
+      } else {
+        await loadInvoiceData();
       }
     } catch (err: unknown) {
-      // Local fallback simulator if backend endpoint is in development
-      if (action === 'submit') {
-        setInvoice((prev) => (prev ? { ...prev, status: 'PENDING_APPROVAL' } : null));
-      } else if (action === 'approve') {
-        setInvoice((prev) => (prev ? { ...prev, status: 'APPROVED' } : null));
-      } else if (action === 'reject') {
-        setInvoice((prev) => (prev ? { ...prev, status: 'REJECTED', rejectionReason } : null));
-        setIsRejectModalOpen(false);
-      } else if (action === 'reopen') {
-        setInvoice((prev) => (prev ? { ...prev, status: 'NEEDS_REVIEW' } : null));
-      }
+      // PRESERVE previous state, DO NOT simulate status transition
       if (err instanceof ApiError) {
-        setActionError(err.message);
+        setActionError(`Workflow operation failed: ${err.message}`);
+      } else {
+        setActionError('Workflow operation failed. The server did not accept the transition.');
       }
     } finally {
       setIsSubmittingWorkflow(false);
@@ -435,8 +280,38 @@ export const InvoiceReviewPage: React.FC = () => {
 
   if (isLoading && !invoice) {
     return (
-      <div style={{ padding: '40px', textAlign: 'center', color: 'var(--color-text-secondary)' }}>
+      <div style={{ padding: '60px 20px', textAlign: 'center', color: 'var(--color-text-secondary)' }}>
         Loading invoice extraction workspace...
+      </div>
+    );
+  }
+
+  if (loadError || !invoice) {
+    return (
+      <div style={{ padding: '60px 20px', textAlign: 'center', maxWidth: '540px', margin: '40px auto' }}>
+        <div style={{
+          background: 'var(--color-surface, #ffffff)',
+          border: '1px solid var(--color-border, #e2e8f0)',
+          borderRadius: '8px',
+          padding: '32px 24px',
+          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)',
+        }}>
+          <AlertCircle size={36} color="var(--color-danger, #ef4444)" style={{ marginBottom: '16px' }} />
+          <h2 style={{ fontSize: '1.25rem', fontWeight: 600, color: 'var(--color-text, #0f172a)', marginBottom: '8px' }}>
+            Unable to Load Invoice
+          </h2>
+          <p style={{ color: 'var(--color-text-secondary, #64748b)', fontSize: '0.875rem', marginBottom: '24px' }}>
+            {loadError || 'The requested invoice could not be found or the server returned an error.'}
+          </p>
+          <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
+            <Button variant="secondary" onClick={() => navigate('/invoices')}>
+              Return to Queue
+            </Button>
+            <Button variant="primary" onClick={loadInvoiceData}>
+              Retry
+            </Button>
+          </div>
+        </div>
       </div>
     );
   }

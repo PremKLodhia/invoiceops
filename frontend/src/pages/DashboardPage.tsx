@@ -11,92 +11,54 @@ import {
   FileSpreadsheet,
   ChevronRight,
   Coins,
+  AlertCircle,
 } from 'lucide-react';
-import { api } from '../api/client';
+import { api, ApiError } from '../api/client';
 import { Card, Button, StatusBadge } from '../components/ui';
 import { InvoiceUploadModal } from '../components/invoice/InvoiceUploadModal';
 import type { DashboardMetrics, Invoice } from '../types';
 import styles from './DashboardPage.module.css';
 
-const fallbackMetrics: DashboardMetrics = {
-  needsReviewCount: 14,
-  pendingApprovalCount: 6,
-  approvedCount: 128,
-  disputedCount: 3,
-  totalCount: 151,
-  currencyBreakdown: [
-    { currency: 'GBP', totalAmount: 14250.0, count: 42 },
-    { currency: 'USD', totalAmount: 268420.5, count: 96 },
-    { currency: 'EUR', totalAmount: 18400.0, count: 13 },
-  ],
-  recentInvoices: [
-    {
-      id: 'inv_01',
-      invoiceNumber: 'INV-2026-0891',
-      supplierName: 'Apex Logistics LLC',
-      totalAmount: 14250.0,
-      taxAmount: 1295.45,
-      currency: 'USD',
-      status: 'NEEDS_REVIEW',
-      issueDate: '2026-10-14',
-      dueDate: '2026-11-13',
-      createdAt: '2026-10-14T09:12:00Z',
-    },
-    {
-      id: 'inv_02',
-      invoiceNumber: 'INV-2026-0890',
-      supplierName: 'Vertex Component Corp',
-      totalAmount: 4120.5,
-      taxAmount: 374.59,
-      currency: 'USD',
-      status: 'PENDING_APPROVAL',
-      issueDate: '2026-10-14',
-      dueDate: '2026-11-28',
-      createdAt: '2026-10-14T10:45:00Z',
-    },
-    {
-      id: 'inv_03',
-      invoiceNumber: 'INV-2026-0889',
-      supplierName: 'Cascade Industrial Spares',
-      totalAmount: 2840.0,
-      taxAmount: 258.18,
-      currency: 'USD',
-      status: 'REJECTED',
-      issueDate: '2026-10-13',
-      dueDate: '2026-11-12',
-      createdAt: '2026-10-13T14:20:00Z',
-    },
-    {
-      id: 'inv_04',
-      invoiceNumber: 'INV-2026-0888',
-      supplierName: 'Kestrel Cloud Infrastructure',
-      totalAmount: 8400.0,
-      taxAmount: 0.0,
-      currency: 'USD',
-      status: 'APPROVED',
-      issueDate: '2026-10-12',
-      dueDate: '2026-10-26',
-      createdAt: '2026-10-12T08:00:00Z',
-    },
-  ],
+const initialMetrics: DashboardMetrics = {
+  needsReviewCount: 0,
+  pendingApprovalCount: 0,
+  approvedCount: 0,
+  disputedCount: 0,
+  totalCount: 0,
+  currencyBreakdown: [],
+  recentInvoices: [],
 };
 
 export const DashboardPage: React.FC = () => {
-  const [metrics, setMetrics] = useState<DashboardMetrics>(fallbackMetrics);
+  const [metrics, setMetrics] = useState<DashboardMetrics>(initialMetrics);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const navigate = useNavigate();
 
   const fetchDashboardData = useCallback(async () => {
     setIsRefreshing(true);
+    setLoadError(null);
     try {
-      const res = await api.get<DashboardMetrics | { data: DashboardMetrics }>('/dashboard');
-      const data = 'data' in res && res.data ? res.data : (res as DashboardMetrics);
-      if (data && typeof data.needsReviewCount === 'number') {
-        setMetrics(data);
+      const res = await api.get<Record<string, any>>('/dashboard');
+      const data = 'data' in res && res.data ? res.data : res;
+      if (data) {
+        setMetrics({
+          needsReviewCount: data.needsReviewCount ?? data.needsReview ?? 0,
+          pendingApprovalCount: data.pendingApprovalCount ?? data.pendingApproval ?? 0,
+          approvedCount: data.approvedCount ?? data.approved ?? 0,
+          disputedCount: data.disputedCount ?? data.rejected ?? 0,
+          totalCount: data.totalCount ?? data.totalInvoices ?? 0,
+          currencyBreakdown: data.currencyBreakdown || [],
+          recentInvoices: data.recentInvoices || [],
+        });
       }
-    } catch {
-      // Retain fallback data when backend is starting up or offline
+    } catch (err: unknown) {
+      if (err instanceof ApiError) {
+        setLoadError(err.message || 'Failed to fetch dashboard metrics');
+      } else {
+        setLoadError('Failed to communicate with reporting service. Please check network connection.');
+      }
     } finally {
       setIsRefreshing(false);
     }
@@ -176,6 +138,31 @@ export const DashboardPage: React.FC = () => {
           </Button>
         </div>
       </div>
+
+      {/* Load Error Banner */}
+      {loadError && (
+        <div style={{
+          background: 'var(--color-bg-danger-subtle, #fef2f2)',
+          border: '1px solid var(--color-border-danger, #fca5a5)',
+          color: 'var(--color-text-danger, #991b1b)',
+          borderRadius: '6px',
+          padding: '12px 16px',
+          marginBottom: '20px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '12px',
+          fontSize: '0.875rem'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <AlertCircle size={16} />
+            <span>{loadError}</span>
+          </div>
+          <Button variant="secondary" size="sm" onClick={fetchDashboardData}>
+            Retry
+          </Button>
+        </div>
+      )}
 
       {/* High-level Operational Metric Cards */}
       <div className={styles.statGrid}>
@@ -259,7 +246,12 @@ export const DashboardPage: React.FC = () => {
           }
         >
           <div className={styles.activityList}>
-            {(metrics.recentInvoices || []).map((inv: Invoice) => (
+            {(metrics.recentInvoices || []).length === 0 ? (
+              <div style={{ padding: '36px 16px', textAlign: 'center', color: 'var(--color-text-secondary, #64748b)', fontSize: '0.875rem' }}>
+                No invoice activity recorded yet in this organisation. Ingest an invoice to view live pipeline throughput.
+              </div>
+            ) : (
+              (metrics.recentInvoices || []).map((inv: Invoice) => (
               <div
                 key={inv.id}
                 className={styles.activityItem}
@@ -292,7 +284,7 @@ export const DashboardPage: React.FC = () => {
                   </span>
                 </div>
               </div>
-            ))}
+            )))}
           </div>
         </Card>
 

@@ -6,80 +6,19 @@ import {
   X,
   PlusCircle,
   Trash2,
+  AlertCircle,
 } from 'lucide-react';
 import { api, ApiError } from '../api/client';
 import { Button, Input, DataTable, StatusBadge, type Column } from '../components/ui';
 import type { PurchaseOrder, PurchaseOrderItem, Supplier } from '../types';
 import styles from './PurchaseOrdersPage.module.css';
 
-const initialPurchaseOrders: PurchaseOrder[] = [
-  {
-    id: 'po_01',
-    poNumber: 'PO-70231',
-    supplierId: 'sup_01',
-    supplierName: 'Apex Logistics LLC',
-    description: 'Q4 Freight hauling and warehouse distribution agreement',
-    totalAmount: 12000.0,
-    currency: 'USD',
-    status: 'PARTIALLY_MATCHED',
-    issuedDate: '2026-10-01',
-    createdAt: '2026-10-01T08:00:00Z',
-  },
-  {
-    id: 'po_02',
-    poNumber: 'PO-70228',
-    supplierId: 'sup_02',
-    supplierName: 'Vertex Component Corp',
-    description: 'ARM Cortex Controller chips batch (2,000 units)',
-    totalAmount: 4120.5,
-    currency: 'USD',
-    status: 'OPEN',
-    issuedDate: '2026-10-05',
-    createdAt: '2026-10-05T09:30:00Z',
-  },
-  {
-    id: 'po_03',
-    poNumber: 'PO-70215',
-    supplierId: 'sup_03',
-    supplierName: 'Cascade Industrial Spares',
-    description: 'Hydraulic high-pressure valve kits',
-    totalAmount: 2500.0,
-    currency: 'USD',
-    status: 'OPEN',
-    issuedDate: '2026-09-28',
-    createdAt: '2026-09-28T14:15:00Z',
-  },
-  {
-    id: 'po_04',
-    poNumber: 'PO-70199',
-    supplierId: 'sup_04',
-    supplierName: 'Kestrel Cloud Infrastructure',
-    description: 'Annual enterprise cluster renewal & egress allowance',
-    totalAmount: 8400.0,
-    currency: 'USD',
-    status: 'FULLY_MATCHED',
-    issuedDate: '2026-09-15',
-    createdAt: '2026-09-15T11:00:00Z',
-  },
-  {
-    id: 'po_05',
-    poNumber: 'PO-70184',
-    supplierId: 'sup_05',
-    supplierName: 'Northwind Packaging Co.',
-    description: 'Corrugated cartons (Size M and L)',
-    totalAmount: 1320.75,
-    currency: 'USD',
-    status: 'FULLY_MATCHED',
-    issuedDate: '2026-09-10',
-    createdAt: '2026-09-10T16:45:00Z',
-  },
-];
-
 export const PurchaseOrdersPage: React.FC = () => {
-  const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>(initialPurchaseOrders);
+  const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [isNewModalOpen, setIsNewModalOpen] = useState(false);
 
   // Form State
@@ -97,14 +36,18 @@ export const PurchaseOrdersPage: React.FC = () => {
 
   const fetchPOs = useCallback(async () => {
     setIsLoading(true);
+    setLoadError(null);
     try {
       const res = await api.get<PurchaseOrder[] | { data: PurchaseOrder[] }>('/purchase-orders');
       const list = Array.isArray(res) ? res : res.data || [];
-      if (list.length > 0) {
-        setPurchaseOrders(list);
+      setPurchaseOrders(list);
+    } catch (err: unknown) {
+      setPurchaseOrders([]);
+      if (err instanceof ApiError) {
+        setLoadError(err.message || 'Failed to load purchase orders');
+      } else {
+        setLoadError('Failed to communicate with purchase order service.');
       }
-    } catch {
-      // Backend fallback preserved
     } finally {
       setIsLoading(false);
     }
@@ -114,15 +57,9 @@ export const PurchaseOrdersPage: React.FC = () => {
     try {
       const res = await api.get<Supplier[] | { data: Supplier[] }>('/suppliers');
       const list = Array.isArray(res) ? res : res.data || [];
-      if (list.length > 0) {
-        setSuppliers(list);
-      }
+      setSuppliers(list);
     } catch {
-      setSuppliers([
-        { id: 'sup_01', name: 'Apex Logistics LLC', active: true, createdAt: '2026-01-01' },
-        { id: 'sup_02', name: 'Vertex Component Corp', active: true, createdAt: '2026-01-01' },
-        { id: 'sup_03', name: 'Cascade Industrial Spares', active: true, createdAt: '2026-01-01' },
-      ]);
+      setSuppliers([]);
     }
   }, []);
 
@@ -203,17 +140,15 @@ export const PurchaseOrdersPage: React.FC = () => {
     };
 
     try {
-      await api.post('/purchase-orders', newPO);
-      setPurchaseOrders((prev) => [newPO, ...prev]);
+      const created = await api.post<PurchaseOrder>('/purchase-orders', newPO);
+      setPurchaseOrders((prev) => [created || newPO, ...prev]);
       setIsNewModalOpen(false);
       resetForm();
     } catch (err: unknown) {
-      // Local fallback
-      setPurchaseOrders((prev) => [newPO, ...prev]);
-      setIsNewModalOpen(false);
-      resetForm();
       if (err instanceof ApiError) {
-        console.warn('Backend sync failed, saved locally:', err.message);
+        setFormError(err.message || 'Failed to create purchase order on server');
+      } else {
+        setFormError('Failed to create purchase order. Please verify connection and retry.');
       }
     } finally {
       setIsSubmitting(false);
@@ -303,6 +238,31 @@ export const PurchaseOrdersPage: React.FC = () => {
         </Button>
       </div>
 
+      {/* Alert Banner */}
+      {loadError && (
+        <div style={{
+          background: 'var(--color-bg-danger-subtle, #fef2f2)',
+          border: '1px solid var(--color-border-danger, #fca5a5)',
+          color: 'var(--color-text-danger, #991b1b)',
+          borderRadius: '6px',
+          padding: '12px 16px',
+          marginBottom: '16px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '12px',
+          fontSize: '0.875rem'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <AlertCircle size={16} />
+            <span>{loadError}</span>
+          </div>
+          <Button variant="secondary" size="sm" onClick={fetchPOs}>
+            Retry
+          </Button>
+        </div>
+      )}
+
       {/* Toolbar */}
       <div className={styles.toolbar}>
         <div className={styles.searchWrap}>
@@ -324,8 +284,14 @@ export const PurchaseOrdersPage: React.FC = () => {
         columns={columns}
         data={filteredPOs as (PurchaseOrder & Record<string, unknown>)[]}
         isLoading={isLoading}
-        emptyTitle="No purchase orders registered"
-        emptyDescription="Create a purchase order to enable 3-way automated invoice matching."
+        emptyTitle={loadError ? "Unable to load purchase orders" : "No purchase orders registered"}
+        emptyDescription={
+          loadError
+            ? "Could not connect to the backend server. Please verify your connection and click Retry."
+            : searchQuery
+            ? "No purchase orders matched your search query."
+            : "No purchase orders have been registered in this organisation yet. Click 'New Purchase Order' to issue a commitment for 2-way/3-way matching."
+        }
       />
 
       {/* New Purchase Order Modal */}

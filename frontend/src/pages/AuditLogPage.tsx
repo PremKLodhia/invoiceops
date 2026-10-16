@@ -4,95 +4,35 @@ import {
   RefreshCw,
   Download,
   ShieldCheck,
+  AlertCircle,
 } from 'lucide-react';
-import { api } from '../api/client';
+import { api, ApiError } from '../api/client';
 import { Button, Input, DataTable, type Column } from '../components/ui';
 import type { AuditEvent } from '../types';
 import styles from './AuditLogPage.module.css';
 
-const initialAuditEvents: AuditEvent[] = [
-  {
-    id: 'aud_108',
-    actorEmail: 'admin@acme.com',
-    action: 'INVOICE_APPROVE',
-    entityType: 'INVOICE',
-    entityId: 'inv_07',
-    metadata: { invoiceNumber: 'INV-2026-0885', supplier: 'Silverline Precision Parts', grossAmount: 7650.0 },
-    createdAt: '2026-10-15T16:20:12Z',
-  },
-  {
-    id: 'aud_107',
-    actorEmail: 'operator@acme.com',
-    action: 'INVOICE_SUBMIT',
-    entityType: 'INVOICE',
-    entityId: 'inv_07',
-    metadata: { invoiceNumber: 'INV-2026-0885', targetStage: 'PENDING_APPROVAL' },
-    createdAt: '2026-10-15T15:45:00Z',
-  },
-  {
-    id: 'aud_106',
-    actorEmail: 'operator@acme.com',
-    action: 'FIELD_CORRECTION',
-    entityType: 'INVOICE',
-    entityId: 'inv_01',
-    metadata: { field: 'supplierName', previous: 'Apex Int Ltd', updated: 'Apex Logistics LLC' },
-    createdAt: '2026-10-15T14:10:45Z',
-  },
-  {
-    id: 'aud_105',
-    actorEmail: 'approver@acme.com',
-    action: 'INVOICE_REJECT',
-    entityType: 'INVOICE',
-    entityId: 'inv_03',
-    metadata: { invoiceNumber: 'INV-2026-0889', reason: 'Missing receiving docket and line total variance' },
-    createdAt: '2026-10-15T11:32:00Z',
-  },
-  {
-    id: 'aud_104',
-    actorEmail: 'worker@invoiceops.local',
-    action: 'INVOICE_UPLOAD',
-    entityType: 'INVOICE',
-    entityId: 'inv_01',
-    metadata: { filename: 'apex_freight_october_invoice.pdf', parser: 'PDFBox v3' },
-    createdAt: '2026-10-15T09:12:00Z',
-  },
-  {
-    id: 'aud_103',
-    actorEmail: 'admin@acme.com',
-    action: 'SUPPLIER_CREATE',
-    entityType: 'SUPPLIER',
-    entityId: 'sup_05',
-    metadata: { name: 'Northwind Packaging Co.', taxId: 'GB554321987' },
-    createdAt: '2026-10-14T10:15:20Z',
-  },
-  {
-    id: 'aud_102',
-    actorEmail: 'admin@acme.com',
-    action: 'PO_CREATE',
-    entityType: 'PURCHASE_ORDER',
-    entityId: 'po_02',
-    metadata: { poNumber: 'PO-70228', amount: 4120.5 },
-    createdAt: '2026-10-13T13:40:00Z',
-  },
-];
-
 export const AuditLogPage: React.FC = () => {
-  const [events, setEvents] = useState<AuditEvent[]>(initialAuditEvents);
+  const [events, setEvents] = useState<AuditEvent[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [actionFilter, setActionFilter] = useState('ALL');
   const [entityFilter, setEntityFilter] = useState('ALL');
   const [isLoading, setIsLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const fetchAuditEvents = useCallback(async () => {
     setIsLoading(true);
+    setLoadError(null);
     try {
       const res = await api.get<AuditEvent[] | { data: AuditEvent[] }>('/audit');
       const list = Array.isArray(res) ? res : res.data || [];
-      if (list.length > 0) {
-        setEvents(list);
+      setEvents(list);
+    } catch (err: unknown) {
+      setEvents([]);
+      if (err instanceof ApiError) {
+        setLoadError(err.message || 'Failed to load audit events');
+      } else {
+        setLoadError('Failed to communicate with audit trail service.');
       }
-    } catch {
-      // Backend fallback preserved
     } finally {
       setIsLoading(false);
     }
@@ -211,6 +151,31 @@ export const AuditLogPage: React.FC = () => {
         </div>
       </div>
 
+      {/* Alert Banner */}
+      {loadError && (
+        <div style={{
+          background: 'var(--color-bg-danger-subtle, #fef2f2)',
+          border: '1px solid var(--color-border-danger, #fca5a5)',
+          color: 'var(--color-text-danger, #991b1b)',
+          borderRadius: '6px',
+          padding: '12px 16px',
+          marginBottom: '16px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '12px',
+          fontSize: '0.875rem'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <AlertCircle size={16} />
+            <span>{loadError}</span>
+          </div>
+          <Button variant="secondary" size="sm" onClick={fetchAuditEvents}>
+            Retry
+          </Button>
+        </div>
+      )}
+
       {/* Toolbar */}
       <div className={styles.toolbar}>
         <div className={styles.searchWrap}>
@@ -264,8 +229,14 @@ export const AuditLogPage: React.FC = () => {
         columns={columns}
         data={filteredEvents as (AuditEvent & Record<string, unknown>)[]}
         isLoading={isLoading}
-        emptyTitle="No audit records found"
-        emptyDescription="System actions and approvals will appear here as they are executed."
+        emptyTitle={loadError ? "Unable to load audit trail" : "No audit records found"}
+        emptyDescription={
+          loadError
+            ? "Could not connect to the backend server. Please verify your connection and click Retry."
+            : searchQuery || actionFilter !== 'ALL' || entityFilter !== 'ALL'
+            ? "No audit events match your selected filter criteria."
+            : "No audit events have been recorded in this organisation yet."
+        }
       />
     </div>
   );

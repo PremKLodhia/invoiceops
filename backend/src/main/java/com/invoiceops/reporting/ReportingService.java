@@ -45,12 +45,15 @@ public class ReportingService {
 
         // Calculate totals separated strictly by currency code
         Map<String, BigDecimal> totalGrossByCurrency = new HashMap<>();
+        List<CurrencyTotalDto> currencyBreakdown = new java.util.ArrayList<>();
         List<Object[]> currencyTotals = invoiceRepository.sumGrossAmountByCurrency(orgId);
         for (Object[] row : currencyTotals) {
             String currency = (String) row[0];
             BigDecimal sum = (BigDecimal) row[1];
+            long count = row[2] != null ? ((Number) row[2]).longValue() : 0L;
             if (currency != null && sum != null) {
                 totalGrossByCurrency.put(currency, sum);
+                currencyBreakdown.add(new CurrencyTotalDto(currency, sum, count));
             }
         }
 
@@ -71,6 +74,7 @@ public class ReportingService {
                 duplicateWarnings,
                 poMismatches,
                 totalGrossByCurrency,
+                currencyBreakdown,
                 recentActivity
         );
     }
@@ -118,17 +122,25 @@ public class ReportingService {
         if (value == null) {
             return "";
         }
-        String trimmed = value.trim();
-        if (!trimmed.isEmpty()) {
-            char firstChar = trimmed.charAt(0);
+        String result = value;
+        if (!result.isEmpty()) {
+            char firstChar = result.charAt(0);
             if (firstChar == '=' || firstChar == '+' || firstChar == '-' || firstChar == '@' ||
                     firstChar == '\t' || firstChar == '\r') {
-                trimmed = "'" + trimmed;
+                result = "'" + result;
+            } else {
+                String trimmed = result.trim();
+                if (!trimmed.isEmpty()) {
+                    char trimmedFirst = trimmed.charAt(0);
+                    if (trimmedFirst == '=' || trimmedFirst == '+' || trimmedFirst == '-' || trimmedFirst == '@') {
+                        result = "'" + result;
+                    }
+                }
             }
         }
-        if (trimmed.contains(",") || trimmed.contains("\"") || trimmed.contains("\n") || trimmed.contains("\r")) {
-            trimmed = "\"" + trimmed.replace("\"", "\"\"") + "\"";
+        if (result.contains(",") || result.contains("\"") || result.contains("\n") || result.contains("\r")) {
+            result = "\"" + result.replace("\"", "\"\"") + "\"";
         }
-        return trimmed;
+        return result;
     }
 }

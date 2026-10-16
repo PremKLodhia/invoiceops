@@ -137,6 +137,9 @@ public class InvoiceService {
             invoice.setSupplier(supplier);
             invoice.setSupplierNameExtracted(supplier.getName());
             recordFieldCorrection(invoice, "supplier", supplier.getName(), user, now);
+        } else if (request.supplierName() != null && !request.supplierName().isBlank()) {
+            invoice.setSupplierNameExtracted(request.supplierName().trim());
+            recordFieldCorrection(invoice, "supplier", request.supplierName().trim(), user, now);
         }
 
         // 2. Invoice Number
@@ -201,7 +204,7 @@ public class InvoiceService {
                         itemCorr.quantity(),
                         itemCorr.unitPrice(),
                         itemCorr.lineTotal(),
-                        order++,
+                        itemCorr.getEffectiveSortOrder(order++),
                         FieldSource.MANUAL
                 ));
             }

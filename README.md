@@ -4,8 +4,8 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Java](https://img.shields.io/badge/Java-21%20LTS-orange.svg)](https://www.oracle.com/java/)
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.4.2-green.svg)](https://spring.io/projects/spring-boot)
-[![React](https://img.shields.io/badge/React-18-61dafb.svg)](https://react.dev/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5-3178c6.svg)](https://www.typescriptlang.org/)
+[![React](https://img.shields.io/badge/React-19-61dafb.svg)](https://react.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-6-3178c6.svg)](https://www.typescriptlang.org/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-336791.svg)](https://www.postgresql.org/)
 [![Zero-Cost Budget](https://img.shields.io/badge/Total%20Cost-£0%20%2F%20$0-brightgreen.svg)](#non-negotiable-requirement-total-cost-must-be-zero)
 
@@ -67,9 +67,11 @@ Common operational bottlenecks include:
 | **2-Way Purchase Order Matching** | Validates invoice line items and totals against authorized PO limits and supplier identities. |
 | **Interactive Review Workspace** | Split-screen desktop workbench rendering document preview alongside editable extracted fields. |
 | **Auditable Approval Workflow** | Strict server-side state machine (`UPLOADED` &rarr; `NEEDS_REVIEW` &rarr; `PENDING_APPROVAL` &rarr; `APPROVED` / `REJECTED`). |
-| **Immutable Audit Trail** | Append-only event store capturing actor, timestamp, action, and structured delta metadata. |
+| **Append-Only Audit Trail** | Application-level append-only event store capturing actor, timestamp, action, and structured delta metadata. |
 | **Multi-Tenant Org Isolation** | Verified organization boundary enforcement preventing cross-tenant document or invoice access. |
+| **Multi-Currency Reporting** | Subtotals grouped strictly by ISO currency code (`GBP`, `USD`, `EUR`) without blending distinct currencies. |
 | **Safe CSV Export** | Spreadsheet formula injection mitigation (CWE-1236) sanitizing formula-triggering characters. |
+| **User Administration** | Role-based team management (`/users`) for administrators with status activation/deactivation and self-deactivation protection. |
 | **Demo Mode with Seeded Fixtures** | Repeatable synthetic dataset showcasing clean, duplicate, mismatch, arithmetic error, and OCR invoices. |
 
 ---
@@ -81,16 +83,17 @@ Common operational bottlenecks include:
 - **Spring Boot 3.4.2** (Web, Data JPA, Security, Actuator, Validation).
 - **Apache PDFBox 3.0.4** for high-performance direct PDF text and metadata extraction.
 - **Tess4J 5.14.0** (Tesseract OCR wrapper) with graceful degradation when native OCR binaries are absent.
-- **Flyway** version-controlled database migrations.
+- **Flyway** version-controlled database migrations for PostgreSQL schema.
 - **Springdoc OpenAPI 2.8.5** (Swagger UI at `/api/swagger-ui`).
-- **PostgreSQL 16** (production / local) + **H2 Database** (automated test suite).
+- **PostgreSQL 16** (production / local Docker) + **H2 Database** (zero-dependency local development and automated test suite).
 
 ### Frontend
-- **React 18** with **TypeScript** in strict mode (`strict: true`, `noImplicitAny: true`).
-- **Vite 8** for sub-second hot module reloading and optimized production bundling.
-- **React Router 7** for secure protected route handling and split-view navigation.
+- **React 19** (`^19.2.8`) with **TypeScript 6** in strict mode (`strict: true`, `noImplicitAny: true`).
+- **Vite 8** (`^8.3.0`) for sub-second hot module reloading and optimized production bundling.
+- **React Router 7** (`^7.18.4`) for secure protected route handling and split-view navigation.
 - **Custom Finance Workbench Design System** (Tokens-based CSS Modules, warm off-white surface, deep navy navigation, system typography).
 - **Lucide React** for lightweight, consistent operational iconography.
+- **Playwright** (`^1.64.1`) for browser end-to-end integration and anti-simulation regression testing.
 
 ### Infrastructure & Tooling
 - **Docker & Docker Compose** for containerized PostgreSQL service and healthcheck verification.
@@ -246,11 +249,21 @@ Copy-Item .env.example .env
 cp .env.example .env
 ```
 
-### 3. Start PostgreSQL (Docker Compose)
-```bash
-docker compose -f infra/docker-compose.yml up -d
+### 3. Database Runtime Modes
+
+InvoiceOps supports two distinct, reliable database modes:
+
+#### Option A: Zero-Dependency Local Mode (H2) — Recommended for Quick Demo
+No Docker or PostgreSQL installation required. Uses an embedded file-backed database in PostgreSQL compatibility mode:
+```powershell
+.\scripts\run-dev.ps1 -Database h2
 ```
-*(If Docker is unavailable, the application can run directly using the H2 in-memory database test profile).*
+
+#### Option B: Production-Like Mode (PostgreSQL + Flyway)
+Runs PostgreSQL 16 via Docker Compose and executes all versioned Flyway migrations (`V1__initial_schema.sql`):
+```powershell
+.\scripts\run-dev.ps1 -Database postgres
+```
 
 ---
 
@@ -258,7 +271,12 @@ docker compose -f infra/docker-compose.yml up -d
 
 ### Automated Start (Windows PowerShell)
 ```powershell
+# Default: Zero-dependency H2 mode
 .\scripts\run-dev.ps1
+
+# Or explicitly select the database engine:
+.\scripts\run-dev.ps1 -Database h2
+.\scripts\run-dev.ps1 -Database postgres
 ```
 
 ### Manual Start
@@ -266,13 +284,12 @@ docker compose -f infra/docker-compose.yml up -d
 #### Backend (Terminal 1)
 ```bash
 cd backend
-# Windows:
-$env:JAVA_HOME = "C:\Program Files\Java\jdk-25" # (or path to your JDK 21+)
-.\mvnw.cmd spring-boot:run -Dspring-boot.run.profiles=dev
 
-# Linux / macOS:
-export JAVA_HOME=/path/to/jdk-21
-./mvnw spring-boot:run -Dspring-boot.run.profiles=dev
+# Option A: Zero-dependency H2 mode
+.\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=dev,h2"
+
+# Option B: PostgreSQL mode (ensure docker compose up -d is running)
+.\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=dev,postgres"
 ```
 Backend API will be available at `http://localhost:8080`.
 Swagger OpenAPI documentation will be at `http://localhost:8080/api/swagger-ui`.
@@ -287,7 +304,7 @@ Frontend workbench will be available at `http://localhost:5173`.
 
 ### Stopping the Services
 - Stop the applications: `Ctrl + C` in each terminal window.
-- Stop the database:
+- Stop the PostgreSQL container (if used):
   ```bash
   docker compose -f infra/docker-compose.yml down
   ```
@@ -302,7 +319,7 @@ InvoiceOps includes an explicit **Demo Mode** (`APP_DEMO_MODE=true` in `.env` or
 
 | Role | Email Address | Password | Permissions |
 |---|---|---|---|
-| **Administrator** | `admin@invoiceops.local` | `DemoAdmin2026!` | User management, settings, review, approval |
+| **Administrator** | `admin@invoiceops.local` | `DemoAdmin2026!` | User management (`/users`), settings, review, approval |
 | **Reviewer** | `reviewer@invoiceops.local` | `DemoReviewer2026!` | Upload, field correction, submission |
 | **Approver** | `approver@invoiceops.local` | `DemoApprover2026!` | Review submitted invoices, approve, reject |
 | **Tenant 2 (Audit)** | `zenith_user@zenith.local` | `DemoZenith2026!` | Isolated second organization account |
@@ -331,32 +348,40 @@ All quality gates can be executed locally with a single script:
 .\scripts\run-tests.ps1
 ```
 
-### Running Backend Tests
+### 1. Backend Tests (Spring Boot 3.4 + JUnit 5 + MockMvc)
 ```bash
 cd backend
-# Windows:
 .\mvnw.cmd clean test
-
-# Linux / macOS:
-./mvnw clean test
 ```
-**Test Slices Covered:**
+**Test Slices Covered (39 tests, 0 failures, 0 errors):**
 - `AuthenticationAndRbacTest`: Form login, session cookies, CSRF protection, role restrictions.
+- `UserManagementTest`: Administrator user creation, RBAC checks (403 for Reviewers), self-deactivation prevention, cross-org isolation.
 - `OrganisationIsolationTest`: Cross-tenant security boundaries on invoices and file downloads.
 - `DeterministicParserTest`: Regex pattern extraction across varying date and currency formats.
 - `FinancialValidationTest`: Math rules, VAT tolerances, duplicate warnings, and PO discrepancies.
 - `InvoiceStateMachineTest`: Enforcing permitted and illegal lifecycle status transitions.
-- `CsvFormulaInjectionTest`: Verifying sanitization of spreadsheet formula injection vectors.
+- `MixedCurrencyReportingTest`: Ensuring multi-currency datasets are strictly isolated and never combined.
+- `CsvFormulaInjectionTest`: Verifying sanitization of spreadsheet formula injection vectors (`=`, `+`, `-`, `@`, `\t`, `\r`, newlines, quotes).
 
-### Running Frontend Checks & Production Build
+### 2. Frontend Checks & Production Build
 ```bash
 cd frontend
 # TypeScript strict check
 npx tsc --noEmit
 
-# Production build
+# Production build (Vite 8)
 npm run build
 ```
+
+### 3. Browser End-to-End Tests (Playwright)
+```bash
+cd frontend
+npm run test:e2e
+```
+**Playwright Test Suites (9 tests, 0 failures):**
+- `auth.spec.ts`: Login page rendering, invalid credentials error alert, successful session redirect.
+- `workflow.spec.ts`: Invoice queue multi-currency grouping, review page field correction, and admin user management.
+- `error-handling.spec.ts`: Anti-simulation verification (failed save NEVER displays "All changes saved", failed workflow submit NEVER alters status badge, failed CSV export displays error and avoids unsanitized download).
 
 ---
 

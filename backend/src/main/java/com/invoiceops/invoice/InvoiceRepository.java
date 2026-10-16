@@ -49,7 +49,7 @@ public interface InvoiceRepository extends JpaRepository<Invoice, UUID> {
 
     long countByOrganisationIdAndHasPoMismatchTrue(UUID organisationId);
 
-    @Query("SELECT i.currency, SUM(i.grossAmount) FROM Invoice i WHERE i.organisationId = :orgId AND i.grossAmount IS NOT NULL GROUP BY i.currency")
+    @Query("SELECT i.currency, SUM(i.grossAmount), COUNT(i) FROM Invoice i WHERE i.organisationId = :orgId AND i.grossAmount IS NOT NULL GROUP BY i.currency")
     List<Object[]> sumGrossAmountByCurrency(@Param("orgId") UUID orgId);
 
     List<Invoice> findByOrganisationIdOrderByCreatedAtDesc(UUID organisationId);

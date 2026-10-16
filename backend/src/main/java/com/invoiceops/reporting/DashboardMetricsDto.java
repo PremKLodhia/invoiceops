@@ -15,6 +15,7 @@ public record DashboardMetricsDto(
         long duplicateWarningsCount,
         long poMismatchesCount,
         Map<String, BigDecimal> totalGrossByCurrency,
+        List<CurrencyTotalDto> currencyBreakdown,
         List<AuditEventDto> recentActivity
 ) {
 }

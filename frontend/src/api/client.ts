@@ -153,7 +153,16 @@ export const api = {
       headers,
     });
     if (!response.ok) {
-      throw new ApiError(`Download failed (${response.status})`, response.status);
+      let errMsg = `Download failed (${response.status})`;
+      try {
+        const errJson = await response.json();
+        if (errJson && errJson.message) {
+          errMsg = errJson.message;
+        }
+      } catch {
+        // Fall back to HTTP status message
+      }
+      throw new ApiError(errMsg, response.status);
     }
     const blob = await response.blob();
     const blobUrl = window.URL.createObjectURL(blob);

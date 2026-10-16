@@ -10,7 +10,7 @@ import { InvoiceReviewPage } from './pages/InvoiceReviewPage';
 import { SuppliersPage } from './pages/SuppliersPage';
 import { PurchaseOrdersPage } from './pages/PurchaseOrdersPage';
 import { AuditLogPage } from './pages/AuditLogPage';
-import { Card } from './components/ui';
+import { UsersPage } from './pages/UsersPage';
 
 const ProtectedRoute: React.FC<{ children?: React.ReactNode }> = ({ children }) => {
   const { isAuthenticated, isLoading } = useAuth();
@@ -41,26 +41,6 @@ const ProtectedRoute: React.FC<{ children?: React.ReactNode }> = ({ children }) 
   return children ? <>{children}</> : null;
 };
 
-// Users admin placeholder module
-const UsersModule: React.FC = () => (
-  <Card
-    title="Access Control & Team"
-    subtitle="Manage operator permissions, roles, and signing authorities"
-    padding="normal"
-  >
-    <div
-      style={{
-        padding: '32px 16px',
-        textAlign: 'center',
-        color: 'var(--color-text-secondary)',
-        fontSize: 'var(--text-xs)',
-      }}
-    >
-      User access control is enabled. Team members have role-based permissions (<strong>ADMIN</strong>, <strong>REVIEWER</strong>, <strong>APPROVER</strong>).
-    </div>
-  </Card>
-);
-
 export const App: React.FC = () => {
   return (
     <AuthProvider>
@@ -85,7 +65,7 @@ export const App: React.FC = () => {
             <Route path="/suppliers" element={<SuppliersPage />} />
             <Route path="/purchase-orders" element={<PurchaseOrdersPage />} />
             <Route path="/audit" element={<AuditLogPage />} />
-            <Route path="/users" element={<UsersModule />} />
+            <Route path="/users" element={<UsersPage />} />
           </Route>
 
           {/* Catch-all Fallback */}

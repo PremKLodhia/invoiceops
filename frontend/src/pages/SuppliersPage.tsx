@@ -7,74 +7,18 @@ import {
   Mail,
   X,
   ExternalLink,
+  AlertCircle,
 } from 'lucide-react';
 import { api, ApiError } from '../api/client';
 import { Button, Input, DataTable, StatusBadge, type Column } from '../components/ui';
 import type { Supplier } from '../types';
 import styles from './SuppliersPage.module.css';
 
-const initialSuppliers: Supplier[] = [
-  {
-    id: 'sup_01',
-    name: 'Apex Logistics LLC',
-    contactEmail: 'billing@apexlogistics.com',
-    taxId: 'GB982341209',
-    address: 'Unit 4, Gateway Logistics Park, Birmingham, B24 8HX',
-    notes: 'Primary freight and warehouse partner. Net 30 terms.',
-    active: true,
-    invoicesCount: 14,
-    createdAt: '2026-01-15T10:00:00Z',
-  },
-  {
-    id: 'sup_02',
-    name: 'Vertex Component Corp',
-    contactEmail: 'accounts@vertexcomponents.io',
-    taxId: 'US84-1928471',
-    address: '500 Technology Drive, San Jose, CA 95110',
-    notes: 'Microcontrollers and circuit board assemblies.',
-    active: true,
-    invoicesCount: 8,
-    createdAt: '2026-02-01T11:20:00Z',
-  },
-  {
-    id: 'sup_03',
-    name: 'Cascade Industrial Spares',
-    contactEmail: 'ar@cascade-spares.co.uk',
-    taxId: 'GB119283741',
-    address: '12 Foundry Way, Sheffield, S9 2TR',
-    notes: 'Hydraulic and pneumatic replacement parts.',
-    active: true,
-    invoicesCount: 6,
-    createdAt: '2026-02-18T14:40:00Z',
-  },
-  {
-    id: 'sup_04',
-    name: 'Kestrel Cloud Infrastructure',
-    contactEmail: 'invoicing@kestrelcloud.net',
-    taxId: 'EU372009182',
-    address: 'Keizersgracht 421, 1016 EK Amsterdam, Netherlands',
-    notes: 'Managed cloud server hosting and load balancing.',
-    active: true,
-    invoicesCount: 12,
-    createdAt: '2026-01-10T09:00:00Z',
-  },
-  {
-    id: 'sup_05',
-    name: 'Northwind Packaging Co.',
-    contactEmail: 'orders@northwindpackaging.com',
-    taxId: 'GB554321987',
-    address: 'Northwind Depot, Trafford Park, Manchester, M17 1EB',
-    notes: 'Recyclable corrugated boxes and pallet wraps.',
-    active: true,
-    invoicesCount: 5,
-    createdAt: '2026-03-05T08:30:00Z',
-  },
-];
-
 export const SuppliersPage: React.FC = () => {
-  const [suppliers, setSuppliers] = useState<Supplier[]>(initialSuppliers);
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(null);
 
@@ -91,14 +35,18 @@ export const SuppliersPage: React.FC = () => {
 
   const fetchSuppliers = useCallback(async () => {
     setIsLoading(true);
+    setLoadError(null);
     try {
       const res = await api.get<Supplier[] | { data: Supplier[] }>('/suppliers');
       const list = Array.isArray(res) ? res : res.data || [];
-      if (list.length > 0) {
-        setSuppliers(list);
+      setSuppliers(list);
+    } catch (err: unknown) {
+      setSuppliers([]);
+      if (err instanceof ApiError) {
+        setLoadError(err.message || 'Failed to load suppliers');
+      } else {
+        setLoadError('Failed to communicate with supplier directory service.');
       }
-    } catch {
-      // Backend fallback preserved
     } finally {
       setIsLoading(false);
     }
@@ -129,30 +77,26 @@ export const SuppliersPage: React.FC = () => {
     }
 
     setIsSubmitting(true);
-    const newRecord: Supplier = {
-      id: `sup_${Date.now()}`,
+    const newRecord = {
       name: newName.trim(),
       contactEmail: newEmail.trim() || undefined,
       taxId: newTaxId.trim() || undefined,
       address: newAddress.trim() || undefined,
       notes: newNotes.trim() || undefined,
       active: true,
-      invoicesCount: 0,
-      createdAt: new Date().toISOString(),
     };
 
     try {
-      await api.post('/suppliers', newRecord);
-      setSuppliers((prev) => [newRecord, ...prev]);
+      const created = await api.post<Supplier>('/suppliers', newRecord);
+      setSuppliers((prev) => [created, ...prev]);
       setIsAddModalOpen(false);
       resetForm();
     } catch (err: unknown) {
-      // Offline fallback: persist in state
-      setSuppliers((prev) => [newRecord, ...prev]);
-      setIsAddModalOpen(false);
-      resetForm();
+      // Never simulate success on failure
       if (err instanceof ApiError) {
-        console.warn('Backend sync failed, stored locally:', err.message);
+        setFormError(err.message || 'Failed to create supplier on server');
+      } else {
+        setFormError('Failed to register supplier. Please verify connection and retry.');
       }
     } finally {
       setIsSubmitting(false);
@@ -263,6 +207,32 @@ export const SuppliersPage: React.FC = () => {
       </div>
 
       {/* Toolbar */}
+      {/* Alert Banner */}
+      {loadError && (
+        <div style={{
+          background: 'var(--color-bg-danger-subtle, #fef2f2)',
+          border: '1px solid var(--color-border-danger, #fca5a5)',
+          color: 'var(--color-text-danger, #991b1b)',
+          borderRadius: '6px',
+          padding: '12px 16px',
+          marginBottom: '16px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '12px',
+          fontSize: '0.875rem'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <AlertCircle size={16} />
+            <span>{loadError}</span>
+          </div>
+          <Button variant="secondary" size="sm" onClick={fetchSuppliers}>
+            Retry
+          </Button>
+        </div>
+      )}
+
+      {/* Search Toolbar */}
       <div className={styles.toolbar}>
         <div className={styles.searchWrap}>
           <Input
@@ -284,8 +254,14 @@ export const SuppliersPage: React.FC = () => {
         data={filteredSuppliers as (Supplier & Record<string, unknown>)[]}
         isLoading={isLoading}
         onRowClick={(s) => setSelectedSupplier(s as Supplier)}
-        emptyTitle="No suppliers found"
-        emptyDescription="Add a new supplier to start matching incoming invoices."
+        emptyTitle={loadError ? "Unable to load suppliers" : "No suppliers found"}
+        emptyDescription={
+          loadError
+            ? "Could not connect to the backend server. Please verify your connection and click Retry."
+            : searchQuery
+            ? "No suppliers matched your search query."
+            : "No suppliers have been registered in this organisation yet. Click 'Add Supplier' to create your first vendor record."
+        }
       />
 
       {/* Add Supplier Modal */}

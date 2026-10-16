@@ -58,6 +58,27 @@ class CsvFormulaInjectionTest {
     }
 
     @Test
+    @DisplayName("Formula injection payload starting with tab or carriage return is sanitized")
+    void testTabAndCarriageReturnSanitization() {
+        String payloadTab = "\t=1+1";
+        String sanitizedTab = reportingService.sanitizeForCsv(payloadTab);
+        assertTrue(sanitizedTab.startsWith("'\t"), "Payload starting with tab must be prefixed with single quote");
+
+        String payloadCr = "\r+cmd";
+        String sanitizedCr = reportingService.sanitizeForCsv(payloadCr);
+        assertTrue(sanitizedCr.contains("'\r"), "Payload starting with CR must be prefixed with single quote");
+    }
+
+    @Test
+    @DisplayName("Values containing newlines are wrapped in quotes and escaped")
+    void testNewlinesEscaping() {
+        String multilineValue = "Line 1\nLine 2\r\nLine 3";
+        String sanitized = reportingService.sanitizeForCsv(multilineValue);
+        assertTrue(sanitized.startsWith("\"") && sanitized.endsWith("\""), "Multiline field must be wrapped in quotes");
+        assertTrue(sanitized.contains("Line 1\nLine 2"));
+    }
+
+    @Test
     @DisplayName("Normal safe alphanumeric values remain untouched")
     void testSafeAlphanumeric() {
         String value = "INV-2026-001";
