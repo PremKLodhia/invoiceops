@@ -11,9 +11,14 @@ public record UserDto(
         String fullName,
         UserRole role,
         boolean active,
-        Instant createdAt
+        Instant createdAt,
+        boolean demoMode
 ) {
     public static UserDto fromEntity(User user) {
+        return fromEntity(user, false);
+    }
+
+    public static UserDto fromEntity(User user, boolean demoMode) {
         return new UserDto(
                 user.getId(),
                 user.getOrganisation() != null ? user.getOrganisation().getId() : null,
@@ -22,7 +27,8 @@ public record UserDto(
                 user.getFullName(),
                 user.getRole(),
                 user.isActive(),
-                user.getCreatedAt()
+                user.getCreatedAt(),
+                demoMode
         );
     }
 }

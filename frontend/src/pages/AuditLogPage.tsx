@@ -23,7 +23,7 @@ export const AuditLogPage: React.FC = () => {
     setIsLoading(true);
     setLoadError(null);
     try {
-      const res = await api.get<AuditEvent[] | { data: AuditEvent[] }>('/audit');
+      const res = await api.get<AuditEvent[] | { data: AuditEvent[] }>('/audit-events');
       const list = Array.isArray(res) ? res : res.data || [];
       setEvents(list);
     } catch (err: unknown) {
@@ -127,7 +127,7 @@ export const AuditLogPage: React.FC = () => {
         <div className={styles.titleArea}>
           <h1 className={styles.title}>System Audit Trail</h1>
           <p className={styles.subtitle}>
-            Immutable chronological ledger of invoice ingestions, field edits, approval transitions, and system actions
+            Append-only chronological audit trail of invoice ingestions, field edits, approval transitions, and system actions
           </p>
         </div>
 

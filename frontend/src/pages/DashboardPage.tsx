@@ -40,8 +40,12 @@ export const DashboardPage: React.FC = () => {
     setIsRefreshing(true);
     setLoadError(null);
     try {
-      const res = await api.get<Record<string, any>>('/dashboard');
+      const [res, invoicesRes] = await Promise.all([
+        api.get<Record<string, any>>('/dashboard'),
+        api.get<any[]>('/invoices').catch(() => [])
+      ]);
       const data = 'data' in res && res.data ? res.data : res;
+      const recent = Array.isArray(invoicesRes) ? invoicesRes.slice(0, 5) : [];
       if (data) {
         setMetrics({
           needsReviewCount: data.needsReviewCount ?? data.needsReview ?? 0,
@@ -50,7 +54,7 @@ export const DashboardPage: React.FC = () => {
           disputedCount: data.disputedCount ?? data.rejected ?? 0,
           totalCount: data.totalCount ?? data.totalInvoices ?? 0,
           currencyBreakdown: data.currencyBreakdown || [],
-          recentInvoices: data.recentInvoices || [],
+          recentInvoices: recent,
         });
       }
     } catch (err: unknown) {
@@ -92,7 +96,7 @@ export const DashboardPage: React.FC = () => {
       title: 'Approved for Payment',
       count: metrics.approvedCount,
       icon: CheckCircle2,
-      meta: 'Passed compliance & 3-way match',
+      meta: 'Passed compliance & 2-way PO match',
       metaType: 'success' as const,
       statusParam: 'APPROVED',
     },
@@ -268,7 +272,7 @@ export const DashboardPage: React.FC = () => {
                       {inv.invoiceNumber} &bull; {inv.supplierName}
                     </span>
                     <span className={styles.activitySubtitle}>
-                      Dated {inv.issueDate} &bull; Received{' '}
+                      Dated {inv.issueDate || (inv as any).invoiceDate || 'N/A'} &bull; Received{' '}
                       {new Date(inv.createdAt || Date.now()).toLocaleDateString()}
                     </span>
                   </div>
@@ -279,8 +283,8 @@ export const DashboardPage: React.FC = () => {
                   <span className={styles.activityAmount}>
                     {new Intl.NumberFormat('en-US', {
                       style: 'currency',
-                      currency: inv.currency || 'USD',
-                    }).format(inv.totalAmount)}
+                      currency: inv.currency || 'GBP',
+                    }).format((inv as any).grossAmount ?? inv.totalAmount ?? 0)}
                   </span>
                 </div>
               </div>
@@ -315,7 +319,7 @@ export const DashboardPage: React.FC = () => {
               >
                 <div className={styles.quickActionContent}>
                   <RefreshCw size={15} />
-                  <span>Purchase Orders & 3-Way Matching</span>
+                  <span>Purchase Orders & 2-Way Matching</span>
                 </div>
                 <ChevronRight size={14} />
               </button>
@@ -355,12 +359,12 @@ export const DashboardPage: React.FC = () => {
               <div className={styles.statusRow}>
                 <span className={styles.statusLabel}>PO Match Engine</span>
                 <span className={styles.statusValue} style={{ color: 'var(--color-status-success)' }}>
-                  ONLINE (2-Way & 3-Way)
+                  ONLINE (2-Way PO Match)
                 </span>
               </div>
               <div className={styles.statusRow}>
                 <span className={styles.statusLabel}>Database Storage</span>
-                <span className={styles.statusValue}>PostgreSQL Multi-tenant</span>
+                <span className={styles.statusValue}>Local Engine (Multi-Tenant)</span>
               </div>
             </div>
           </Card>

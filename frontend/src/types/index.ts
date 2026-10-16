@@ -13,9 +13,11 @@ export interface User {
   fullName: string;
   role: UserRole;
   organisationId: string;
+  organisationName?: string;
   isActive: boolean;
   createdAt: string;
   updatedAt?: string;
+  demoMode?: boolean;
 }
 
 export interface Organisation {

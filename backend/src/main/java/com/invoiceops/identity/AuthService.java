@@ -14,6 +14,7 @@ import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.invoiceops.config.AppProperties;
 import java.util.UUID;
 
 @Service
@@ -21,11 +22,13 @@ public class AuthService {
 
     private final AuthenticationManager authenticationManager;
     private final UserRepository userRepository;
+    private final AppProperties appProperties;
     private final SecurityContextRepository securityContextRepository = new HttpSessionSecurityContextRepository();
 
-    public AuthService(AuthenticationManager authenticationManager, UserRepository userRepository) {
+    public AuthService(AuthenticationManager authenticationManager, UserRepository userRepository, AppProperties appProperties) {
         this.authenticationManager = authenticationManager;
         this.userRepository = userRepository;
+        this.appProperties = appProperties;
     }
 
     @Transactional
@@ -43,7 +46,7 @@ public class AuthService {
         User user = userRepository.findByIdWithOrganisation(userDetails.getUserId())
                 .orElseThrow(() -> new IllegalStateException("Authenticated user not found in database"));
 
-        return AuthResponse.success(UserDto.fromEntity(user), "Authentication successful");
+        return AuthResponse.success(UserDto.fromEntity(user, appProperties.isDemoMode()), "Authentication successful");
     }
 
     @Transactional(readOnly = true)
@@ -51,7 +54,7 @@ public class AuthService {
         UUID userId = SecurityUtils.getCurrentUserId();
         User user = userRepository.findByIdWithOrganisation(userId)
                 .orElseThrow(() -> new IllegalStateException("Current user not found in database"));
-        return UserDto.fromEntity(user);
+        return UserDto.fromEntity(user, appProperties.isDemoMode());
     }
 
     public void logout(HttpServletRequest request, HttpServletResponse response) {

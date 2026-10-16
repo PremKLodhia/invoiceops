@@ -102,7 +102,11 @@ export const AppLayout: React.FC = () => {
             </div>
             <span className={styles.brandTitle}>InvoiceOps</span>
           </div>
-          <span className={styles.badgeEnv}>LOCAL</span>
+          {user?.demoMode ? (
+            <span className={styles.badgeDemo} title="Synthetic demo mode is active">DEMO DATA</span>
+          ) : (
+            <span className={styles.badgeEnv}>LOCAL</span>
+          )}
         </div>
 
         <nav className={styles.nav}>

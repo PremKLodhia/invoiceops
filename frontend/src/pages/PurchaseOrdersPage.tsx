@@ -224,7 +224,7 @@ export const PurchaseOrdersPage: React.FC = () => {
         <div className={styles.titleArea}>
           <h1 className={styles.title}>Purchase Orders Registry</h1>
           <p className={styles.subtitle}>
-            Manage procurement commitments for automated 2-way and 3-way invoice matching
+            Manage procurement commitments for automated 2-way invoice matching against purchase orders
           </p>
         </div>
 
@@ -290,7 +290,7 @@ export const PurchaseOrdersPage: React.FC = () => {
             ? "Could not connect to the backend server. Please verify your connection and click Retry."
             : searchQuery
             ? "No purchase orders matched your search query."
-            : "No purchase orders have been registered in this organisation yet. Click 'New Purchase Order' to issue a commitment for 2-way/3-way matching."
+            : "No purchase orders have been registered in this organisation yet. Click 'New Purchase Order' to issue a commitment for 2-way PO matching."
         }
       />
 

@@ -13,7 +13,7 @@ import java.util.List;
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/api/audit-events")
+@RequestMapping({"/api/audit-events", "/api/audit"})
 @Tag(name = "Audit Events", description = "Organisation audit and compliance log")
 public class AuditController {
 

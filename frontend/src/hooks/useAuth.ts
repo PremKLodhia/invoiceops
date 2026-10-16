@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
 import { api, ApiError } from '../api/client';
-import type { User, Organisation, LoginCredentials, AuthSession } from '../types';
+import type { User, Organisation, LoginCredentials } from '../types';
 
 interface AuthContextType {
   user: User | null;
@@ -48,17 +48,24 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     try {
       setIsLoading(true);
       // Attempt to verify existing session with backend
-      const session = await api.get<AuthSession | { user: User; organisation?: Organisation }>('/auth/me');
-      if (session && session.user) {
-        setUser(session.user);
-        if ('organisation' in session && session.organisation) {
-          setOrganisation(session.organisation);
-        }
-        localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(session.user));
+      const session = await api.get<any>('/auth/me');
+      const resolvedUser: User | null = session?.user || (session?.id && session?.email ? session : null);
+      if (resolvedUser) {
+        setUser(resolvedUser);
+        const orgName = session?.organisation?.name || resolvedUser.organisationName || 'Acme Industrial Holdings';
+        const resolvedOrg: Organisation = {
+          id: resolvedUser.organisationId,
+          name: orgName,
+          slug: orgName.toLowerCase().replace(/[^a-z0-9]/g, '-'),
+          currency: 'GBP',
+          createdAt: new Date().toISOString(),
+        };
+        setOrganisation(resolvedOrg);
+        localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(resolvedUser));
+        localStorage.setItem(STORAGE_KEY_ORG, JSON.stringify(resolvedOrg));
       }
     } catch {
       // If unauthorized or server offline, fall back to preserved session if exists, otherwise clear
-      // When server is offline, keep stored user for dev inspection if available
     } finally {
       setIsLoading(false);
     }
@@ -72,34 +79,22 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setIsLoading(true);
     setError(null);
     try {
-      const response = await api.post<AuthSession | { user: User; organisation?: Organisation }>(
-        '/auth/login',
-        credentials
-      );
+      const response = await api.post<any>('/auth/login', credentials);
+      const userPayload: User | null = response?.user || (response?.id && response?.email ? response : null);
 
-      const resolvedUser: User =
-        response && response.user
-          ? response.user
-          : {
-              id: 'usr_default',
-              email: credentials.email,
-              fullName: credentials.email.split('@')[0] || 'Finance User',
-              role: 'finance_manager',
-              organisationId: 'org_main',
-              isActive: true,
-              createdAt: new Date().toISOString(),
-            };
+      if (!userPayload) {
+        throw new Error('Authentication response did not contain valid user credentials.');
+      }
 
-      const resolvedOrg: Organisation =
-        response && 'organisation' in response && response.organisation
-          ? response.organisation
-          : {
-              id: resolvedUser.organisationId,
-              name: 'Acme Operations Ltd',
-              slug: 'acme-ops',
-              currency: 'USD',
-              createdAt: new Date().toISOString(),
-            };
+      const resolvedUser: User = userPayload;
+      const orgName = response?.organisation?.name || resolvedUser.organisationName || 'Acme Industrial Holdings';
+      const resolvedOrg: Organisation = {
+        id: resolvedUser.organisationId,
+        name: orgName,
+        slug: orgName.toLowerCase().replace(/[^a-z0-9]/g, '-'),
+        currency: 'GBP',
+        createdAt: new Date().toISOString(),
+      };
 
       setUser(resolvedUser);
       setOrganisation(resolvedOrg);

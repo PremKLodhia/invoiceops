@@ -258,7 +258,7 @@ export const InvoiceListPage: React.FC = () => {
         <div className={styles.titleArea}>
           <h1 className={styles.title}>Invoice Processing Queue</h1>
           <p className={styles.subtitle}>
-            Manage ingested invoices, 2-way/3-way matching exceptions, and payment approvals
+            Manage ingested invoices, 2-way PO matching exceptions, and payment approvals
           </p>
         </div>
 
@@ -431,7 +431,7 @@ export const InvoiceListPage: React.FC = () => {
         </span>
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
           <CheckCircle size={13} style={{ color: 'var(--color-status-success)' }} />
-          All local ledger sync checkpoints up to date
+          All local queue and database records synchronized
         </span>
       </div>
 

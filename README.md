@@ -270,13 +270,16 @@ Runs PostgreSQL 16 via Docker Compose and executes all versioned Flyway migratio
 ## 8. Starting & Stopping the System
 
 ### Automated Start (Windows PowerShell)
+The launcher verifies modern Java 21+, configures the database runtime, and launches the backend and frontend in dedicated console windows:
 ```powershell
-# Default: Zero-dependency H2 mode
+# Default: Zero-dependency H2 mode (launches backend & frontend windows)
 .\scripts\run-dev.ps1
 
-# Or explicitly select the database engine:
-.\scripts\run-dev.ps1 -Database h2
+# Or PostgreSQL mode via Docker Compose:
 .\scripts\run-dev.ps1 -Database postgres
+
+# Dry-run: Print environment config and commands without launching windows:
+.\scripts\run-dev.ps1 -NoLaunch
 ```
 
 ### Manual Start
