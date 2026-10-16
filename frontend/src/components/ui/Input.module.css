@@ -1,0 +1,108 @@
+.wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  width: 100%;
+}
+
+.label {
+  font-size: var(--text-xs);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.required {
+  color: var(--color-status-error);
+  margin-left: 2px;
+}
+
+.inputContainer {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.input {
+  width: 100%;
+  height: 34px;
+  padding: 0 var(--space-3);
+  font-size: var(--text-sm);
+  font-family: var(--font-sans);
+  color: var(--color-text-primary);
+  background-color: var(--color-bg-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast), background-color var(--transition-fast);
+}
+
+.input::placeholder {
+  color: var(--color-text-muted);
+}
+
+.input:hover:not(:disabled) {
+  border-color: var(--color-border-strong);
+}
+
+.input:focus {
+  outline: none;
+  border-color: var(--color-accent);
+  box-shadow: var(--shadow-focus);
+}
+
+.input:disabled {
+  background-color: var(--color-bg-surface-hover);
+  color: var(--color-text-muted);
+  cursor: not-allowed;
+}
+
+.hasError .input {
+  border-color: var(--color-status-error);
+}
+
+.hasError .input:focus {
+  border-color: var(--color-status-error);
+  box-shadow: var(--shadow-focus-danger);
+}
+
+.withLeftIcon {
+  padding-left: var(--space-8);
+}
+
+.withRightElement {
+  padding-right: var(--space-8);
+}
+
+.leftIcon {
+  position: absolute;
+  left: var(--space-3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-secondary);
+  pointer-events: none;
+}
+
+.rightElement {
+  position: absolute;
+  right: var(--space-3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.helperText {
+  font-size: var(--text-2xs);
+  color: var(--color-text-secondary);
+  line-height: 1.3;
+}
+
+.errorMessage {
+  font-size: var(--text-2xs);
+  color: var(--color-status-error);
+  font-weight: var(--font-weight-medium);
+  line-height: 1.3;
+}

@@ -1,0 +1,45 @@
+# IDE
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+.project
+.classpath
+.settings/
+
+# Build outputs
+backend/target/
+frontend/dist/
+frontend/node_modules/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Uploads and runtime data
+uploads/
+backend/uploads/
+data/
+backend/data/
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs
+*.log
+logs/
+
+# Docker volumes
+pgdata/
+
+# Coverage
+backend/coverage/
+frontend/coverage/
+
+# Playwright
+frontend/test-results/
+frontend/playwright-report/
