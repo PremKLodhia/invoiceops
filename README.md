@@ -60,7 +60,7 @@ Common operational bottlenecks include:
 | Capability | Implementation |
 |---|---|
 | **Local-First & Zero-Cost** | Runs 100% on local hardware. Zero cloud subscriptions, zero external paid APIs. |
-| **Pluggable Document Extraction** | Apache PDFBox native text extraction with optional Tesseract OCR and optional Ollama AI enhancement. |
+| **Pluggable Document Extraction** | Apache PDFBox native text extraction with optional Tesseract OCR. An Ollama adapter exists as an extension point but does not yet extract anything (see Known Limitations). |
 | **Deterministic Parsing** | Resilient regex and pattern parser with field-level confidence ratings (`HIGH`, `MEDIUM`, `LOW`, `UNVERIFIED`). |
 | **Financial Consistency Engine** | Automated validation verifying `Net Subtotal + Tax == Gross Total` within floating-point tolerance. |
 | **Duplicate Detection** | Proactive warning triggers on matching normalized invoice numbers, suppliers, or cryptographic file hashes. |
@@ -436,6 +436,8 @@ flowchart TD
 - **Three-Way Matching**: Current PO matching performs 2-way verification (Invoice $\leftrightarrow$ Purchase Order). Goods Receipt Note (GRN) matching is not yet implemented.
 - **Complex Multi-Page OCR**: Scanned documents with tilted orientation or handwriting require manual field confirmation.
 - **Single Currency per Invoice**: While the system supports GBP, USD, and EUR, mixed-currency line items on a single document are not supported.
+- **Ollama AI Extraction Is a Placeholder**: `OllamaExtractionAdapter` is an extension point only. `extractWithAi` always returns `null` (whether or not Ollama is running), so all extraction comes from PDFBox, Tesseract OCR and the deterministic parser.
+- **Unindexed Search**: Invoice search matches with `LOWER(column) LIKE '%term%'` on invoice number, supplier name and PO reference. The leading wildcard prevents the database from using an index, so search scans the organisation's invoices and will slow down as volume grows.
 
 ---
 
