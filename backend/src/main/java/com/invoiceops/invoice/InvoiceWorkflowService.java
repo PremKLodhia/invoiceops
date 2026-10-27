@@ -6,9 +6,31 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
+import java.util.EnumSet;
+import java.util.Set;
 
 @Service
 public class InvoiceWorkflowService {
+
+    /** Statuses in which a reviewer may still correct extracted fields. */
+    private static final Set<InvoiceStatus> CORRECTABLE =
+            EnumSet.of(InvoiceStatus.NEEDS_REVIEW, InvoiceStatus.REJECTED, InvoiceStatus.EXTRACTION_FAILED);
+
+    /** Rejects a field correction unless the invoice is still under review. Call before changing any field. */
+    public void assertCorrectable(Invoice invoice) {
+        if (!CORRECTABLE.contains(invoice.getStatus())) {
+            throw new InvoiceNotEditableException(invoice.getStatus());
+        }
+    }
+
+    /** After a correction, REJECTED and EXTRACTION_FAILED invoices return to NEEDS_REVIEW. */
+    public void completeCorrection(Invoice invoice, User user) {
+        if (invoice.getStatus() == InvoiceStatus.REJECTED) {
+            reopenForCorrection(invoice, user);
+        } else if (invoice.getStatus() == InvoiceStatus.EXTRACTION_FAILED) {
+            invoice.setStatus(InvoiceStatus.NEEDS_REVIEW);
+        }
+    }
 
     public void transitionToProcessing(Invoice invoice) {
         if (invoice.getStatus() != InvoiceStatus.UPLOADED) {

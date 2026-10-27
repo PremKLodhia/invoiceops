@@ -1,6 +1,5 @@
 package com.invoiceops.config;
 
-import com.invoiceops.audit.AuditEventRepository;
 import com.invoiceops.audit.AuditService;
 import com.invoiceops.extraction.ConfidenceLevel;
 import com.invoiceops.extraction.ExtractionMethod;
@@ -21,11 +20,13 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.Map;
+import java.util.UUID;
 
 @Component
 public class DataSeeder implements CommandLineRunner {
 
     private static final Logger log = LoggerFactory.getLogger(DataSeeder.class);
+    private static final String ACME = "Acme Industrial Holdings";
 
     private final AppProperties appProperties;
     private final OrganisationRepository organisationRepository;
@@ -33,7 +34,6 @@ public class DataSeeder implements CommandLineRunner {
     private final SupplierRepository supplierRepository;
     private final PurchaseOrderRepository purchaseOrderRepository;
     private final InvoiceRepository invoiceRepository;
-    private final AuditEventRepository auditEventRepository;
     private final AuditService auditService;
     private final PasswordEncoder passwordEncoder;
 
@@ -44,7 +44,6 @@ public class DataSeeder implements CommandLineRunner {
             SupplierRepository supplierRepository,
             PurchaseOrderRepository purchaseOrderRepository,
             InvoiceRepository invoiceRepository,
-            AuditEventRepository auditEventRepository,
             AuditService auditService,
             PasswordEncoder passwordEncoder) {
         this.appProperties = appProperties;
@@ -53,7 +52,6 @@ public class DataSeeder implements CommandLineRunner {
         this.supplierRepository = supplierRepository;
         this.purchaseOrderRepository = purchaseOrderRepository;
         this.invoiceRepository = invoiceRepository;
-        this.auditEventRepository = auditEventRepository;
         this.auditService = auditService;
         this.passwordEncoder = passwordEncoder;
     }
@@ -67,62 +65,72 @@ public class DataSeeder implements CommandLineRunner {
         }
     }
 
+    /**
+     * Restores the demo suppliers, purchase orders and invoices. Organisations, users and the
+     * audit trail are kept: audit events reference both, and audit history must never be erased.
+     * The reset itself is recorded as a DEMO_RESET audit event.
+     */
     @Transactional
-    public void resetDemoData() {
+    public void resetDemoData(UUID actorOrgId, UUID actorId, String actorEmail) {
         log.info("Resetting demo data...");
+        long invoices = invoiceRepository.count();
+        long purchaseOrders = purchaseOrderRepository.count();
+        long suppliers = supplierRepository.count();
         invoiceRepository.deleteAll();
         purchaseOrderRepository.deleteAll();
         supplierRepository.deleteAll();
-        userRepository.deleteAll();
-        organisationRepository.deleteAll();
-        auditEventRepository.deleteAll();
-        seedDemoData();
+        // Hibernate orders inserts before deletes at flush; flush now so reseeding can reuse PO numbers.
+        supplierRepository.flush();
+
+        Organisation acme = organisationRepository.findByNameIgnoreCase(ACME)
+                .orElseGet(() -> organisationRepository.save(new Organisation(ACME)));
+        seedBusinessData(acme, demoUsers(acme));
+
+        auditService.logEvent(actorOrgId, actorId, actorEmail, "DEMO_RESET", "ORGANISATION", actorOrgId,
+                Map.of("deletedInvoices", invoices, "deletedPurchaseOrders", purchaseOrders, "deletedSuppliers", suppliers));
     }
 
     @Transactional
     public void seedDemoData() {
-        if (organisationRepository.findByNameIgnoreCase("Acme Industrial Holdings").isPresent()) {
+        if (organisationRepository.findByNameIgnoreCase(ACME).isPresent()) {
             log.info("Demo data already seeded.");
             return;
         }
 
         // 1. Organisations
-        Organisation acme = organisationRepository.save(new Organisation("Acme Industrial Holdings"));
+        Organisation acme = organisationRepository.save(new Organisation(ACME));
         Organisation zenith = organisationRepository.save(new Organisation("Zenith Global Logistics"));
 
         // 2. Users for Acme
-        User admin = userRepository.save(new User(
-                acme,
-                "admin@invoiceops.local",
-                passwordEncoder.encode("DemoAdmin2026!"),
-                "Alice Administrator",
-                UserRole.ADMIN
-        ));
-
-        User reviewer = userRepository.save(new User(
-                acme,
-                "reviewer@invoiceops.local",
-                passwordEncoder.encode("DemoReviewer2026!"),
-                "Bob Reviewer",
-                UserRole.REVIEWER
-        ));
-
-        User approver = userRepository.save(new User(
-                acme,
-                "approver@invoiceops.local",
-                passwordEncoder.encode("DemoApprover2026!"),
-                "Carol Approver",
-                UserRole.APPROVER
-        ));
+        DemoUsers users = demoUsers(acme);
 
         // Users for Zenith (cross-organisation isolation tests)
-        User zenithUser = userRepository.save(new User(
-                zenith,
-                "zenith_user@zenith.local",
-                passwordEncoder.encode("DemoZenith2026!"),
-                "Zach Zenith",
-                UserRole.REVIEWER
-        ));
+        demoUser(zenith, "zenith_user@zenith.local", "DemoZenith2026!", "Zach Zenith", UserRole.REVIEWER);
+
+        auditService.logEvent(acme.getId(), users.admin().getId(), users.admin().getEmail(), "ORGANISATION_INITIALIZED", "ORGANISATION", acme.getId(), Map.of("seeded", true));
+        seedBusinessData(acme, users);
+        log.info("Demo data seeding completed successfully.");
+    }
+
+    private record DemoUsers(User admin, User reviewer, User approver) {
+    }
+
+    private DemoUsers demoUsers(Organisation acme) {
+        return new DemoUsers(
+                demoUser(acme, "admin@invoiceops.local", "DemoAdmin2026!", "Alice Administrator", UserRole.ADMIN),
+                demoUser(acme, "reviewer@invoiceops.local", "DemoReviewer2026!", "Bob Reviewer", UserRole.REVIEWER),
+                demoUser(acme, "approver@invoiceops.local", "DemoApprover2026!", "Carol Approver", UserRole.APPROVER));
+    }
+
+    /** Returns the existing demo user, or creates it if it is missing. */
+    private User demoUser(Organisation org, String email, String password, String name, UserRole role) {
+        return userRepository.findByEmail(email)
+                .orElseGet(() -> userRepository.save(new User(org, email, passwordEncoder.encode(password), name, role)));
+    }
+
+    private void seedBusinessData(Organisation acme, DemoUsers users) {
+        User reviewer = users.reviewer();
+        User approver = users.approver();
 
         // 3. Suppliers for Acme
         Supplier s1 = supplierRepository.save(new Supplier(
@@ -339,11 +347,9 @@ public class DataSeeder implements CommandLineRunner {
         invoiceRepository.save(inv6);
 
         // 6. Audit Trail for initial actions
-        auditService.logEvent(acme.getId(), admin.getId(), admin.getEmail(), "ORGANISATION_INITIALIZED", "ORGANISATION", acme.getId(), Map.of("seeded", true));
         auditService.logEvent(acme.getId(), reviewer.getId(), reviewer.getEmail(), "INVOICE_UPLOADED", "INVOICE", inv1.getId(), Map.of("invoiceNumber", "INV-2026-001"));
         auditService.logEvent(acme.getId(), approver.getId(), approver.getEmail(), "INVOICE_APPROVED", "INVOICE", inv1.getId(), Map.of("invoiceNumber", "INV-2026-001"));
         auditService.logEvent(acme.getId(), approver.getId(), approver.getEmail(), "INVOICE_REJECTED", "INVOICE", inv6.getId(), Map.of("invoiceNumber", "INV-2026-006", "reason", inv6.getRejectionReason()));
 
-        log.info("Demo data seeding completed successfully.");
     }
 }

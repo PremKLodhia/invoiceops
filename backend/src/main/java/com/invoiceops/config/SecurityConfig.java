@@ -52,8 +52,7 @@ public class SecurityConfig {
                                 "/api/docs/**",
                                 "/api/swagger-ui/**",
                                 "/swagger-ui/**",
-                                "/v3/api-docs/**",
-                                "/api/demo/**"
+                                "/v3/api-docs/**"
                         )
                 )
                 .addFilterAfter(new CsrfCookieFilter(), BasicAuthenticationFilter.class)
@@ -71,9 +70,9 @@ public class SecurityConfig {
                                 "/swagger-ui/**",
                                 "/swagger-ui.html",
                                 "/v3/api-docs/**",
-                                "/api/demo/**",
                                 "/error"
                         ).permitAll()
+                        .requestMatchers("/api/demo/**").hasRole("ADMIN")
                         .requestMatchers("/api/**").authenticated()
                         .anyRequest().permitAll()
                 )

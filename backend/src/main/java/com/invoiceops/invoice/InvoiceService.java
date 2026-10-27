@@ -18,6 +18,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.time.Instant;
@@ -64,6 +66,7 @@ public class InvoiceService {
                 .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
 
         StoredDocument storedDoc = documentStorageService.storeDocument(file);
+        deleteStoredFileOnRollback(storedDoc.storedFilename());
 
         Invoice invoice = new Invoice(
                 orgId,
@@ -97,6 +100,24 @@ public class InvoiceService {
         return InvoiceSummaryDto.fromEntity(saved);
     }
 
+    /**
+     * The document is written to disk before the database transaction commits. If the
+     * transaction rolls back, remove the file so it is not left orphaned.
+     */
+    private void deleteStoredFileOnRollback(String storedFilename) {
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            return;
+        }
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCompletion(int status) {
+                if (status == STATUS_ROLLED_BACK) {
+                    documentStorageService.deleteDocument(storedFilename);
+                }
+            }
+        });
+    }
+
     @Transactional(readOnly = true)
     public InvoiceDetailDto getInvoice(UUID invoiceId, UUID orgId) {
         Invoice invoice = invoiceRepository.findByIdAndOrganisationId(invoiceId, orgId)
@@ -127,6 +148,8 @@ public class InvoiceService {
 
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
+
+        workflowService.assertCorrectable(invoice);
 
         Instant now = Instant.now();
 
@@ -210,10 +233,8 @@ public class InvoiceService {
             }
         }
 
-        // Reopen if rejected
-        if (invoice.getStatus() == InvoiceStatus.REJECTED) {
-            workflowService.reopenForCorrection(invoice, user);
-        }
+        // Rejected and extraction-failed invoices return to review
+        workflowService.completeCorrection(invoice, user);
 
         // Clear previous validation results and re-run validations
         invoice.clearValidationResults();
