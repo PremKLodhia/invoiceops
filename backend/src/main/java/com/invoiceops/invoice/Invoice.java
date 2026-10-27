@@ -129,6 +129,11 @@ public class Invoice {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
+    /** Optimistic lock: a stale concurrent update (e.g. two approvers) fails instead of overwriting. */
+    @Version
+    @Column(name = "version", nullable = false)
+    private long version;
+
     // Collections
     @OneToMany(mappedBy = "invoice", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<InvoiceLineItem> lineItems = new ArrayList<>();
@@ -468,6 +473,10 @@ public class Invoice {
 
     public void setUpdatedAt(Instant updatedAt) {
         this.updatedAt = updatedAt;
+    }
+
+    public long getVersion() {
+        return version;
     }
 
     public List<InvoiceLineItem> getLineItems() {
