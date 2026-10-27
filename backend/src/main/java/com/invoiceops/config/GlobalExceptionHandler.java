@@ -1,5 +1,6 @@
 package com.invoiceops.config;
 
+import com.invoiceops.invoice.InvoiceNotEditableException;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
@@ -74,6 +75,18 @@ public class GlobalExceptionHandler {
                 request.getRequestURI()
         );
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+    }
+
+    @ExceptionHandler(InvoiceNotEditableException.class)
+    public ResponseEntity<ApiErrorResponse> handleInvoiceNotEditable(
+            InvoiceNotEditableException ex, HttpServletRequest request) {
+        ApiErrorResponse response = ApiErrorResponse.of(
+                HttpStatus.CONFLICT.value(),
+                HttpStatus.CONFLICT.getReasonPhrase(),
+                ex.getMessage(),
+                request.getRequestURI()
+        );
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
     }
 
     @ExceptionHandler(BadCredentialsException.class)

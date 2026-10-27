@@ -128,6 +128,8 @@ public class InvoiceService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
 
+        workflowService.assertCorrectable(invoice);
+
         Instant now = Instant.now();
 
         // 1. Supplier correction
@@ -210,10 +212,8 @@ public class InvoiceService {
             }
         }
 
-        // Reopen if rejected
-        if (invoice.getStatus() == InvoiceStatus.REJECTED) {
-            workflowService.reopenForCorrection(invoice, user);
-        }
+        // Rejected and extraction-failed invoices return to review
+        workflowService.completeCorrection(invoice, user);
 
         // Clear previous validation results and re-run validations
         invoice.clearValidationResults();
